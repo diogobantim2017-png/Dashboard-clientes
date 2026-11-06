@@ -5,6 +5,5 @@
 
 window.CRUZ_CONFIG = {
   supabaseUrl: 'https://pkzygfuustqeibvkttpo.supabase.co',        // fica assim: https://abcdefghijkl.supabase.co
-  supabaseKey: 'sb_publishable_gu6bAwKPGha1LRG-tK3H2w_B2-yecLE
- ',  // começa com sb_publishable_
-};
+  supabaseKey: 'sb_publishable_gu6bAwKPGha1LRG-tK3H2w_B2-yecLE',  // começa com sb_publishable_
+  };
