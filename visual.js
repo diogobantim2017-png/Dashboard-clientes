@@ -133,6 +133,34 @@
     caixa.append(ol);
   }
 
+  /* ---------- Empresas ou pessoas (botões de troca) ---------- */
+
+  function desenhaAlternador(caixa, visao, contagens, aoTrocar) {
+    const grupo = el('div', { class: 'cz-alternador', role: 'group', 'aria-label': 'Ver por empresa ou por pessoa' });
+    for (const [id, rotulo, n, nomeIcone] of [['empresas', 'Empresas', contagens.empresas, 'empresa'], ['pessoas', 'Pessoas', contagens.pessoas, 'pessoas']]) {
+      const ativo = visao === id;
+      const b = el('button', { type: 'button', class: `cz-alternar${ativo ? ' is-ativo' : ''}`, 'aria-pressed': String(ativo) },
+        icone(nomeIcone, 'cz-icone cz-icone-p'), el('span', { text: rotulo }), el('span', { class: 'cz-alternar-num', text: fmtN(n) }));
+      b.addEventListener('click', () => { if (!ativo) aoTrocar(id); });
+      grupo.append(b);
+    }
+    caixa.replaceChildren(grupo);
+  }
+
+  const avisoEvento = (evento, n, um, varios, aoLimpar) => {
+    const aviso = el('p', { class: 'cz-filtro-evento' }, el('span', { text: `Mostrando quem foi ao ${evento}: ${plural(n, um, varios)}.` }));
+    const limpar = el('button', { type: 'button', class: 'cz-link' }, icone('fechar', 'cz-icone cz-icone-p'), el('span', { text: 'Ver todos os eventos' }));
+    limpar.addEventListener('click', aoLimpar);
+    aviso.append(limpar);
+    return aviso;
+  };
+
+  const bolinhasDe = (n, total) => {
+    const bolinhas = el('span', { class: 'cz-bolinhas', 'aria-hidden': 'true' });
+    if (total <= 12) for (let i = 0; i < total; i += 1) bolinhas.append(el('i', { class: i < n ? 'is-cheia' : '' }));
+    return bolinhas;
+  };
+
   /* ---------- Cartões das empresas ---------- */
 
   // empresas: [{ empresa, setor, eventos, pessoas, ultimo_contato }]
@@ -140,31 +168,98 @@
   function desenhaEmpresas(caixa, empresas, opcoes) {
     const { totalEventos, eventosDe, aoEscolher, corDoSetor, evento, aoLimparEvento } = opcoes;
     caixa.replaceChildren();
-    if (evento) {
-      const aviso = el('p', { class: 'cz-filtro-evento' },
-        el('span', { text: `Mostrando quem foi ao ${evento}: ${plural(empresas.length, 'empresa', 'empresas')}.` }));
-      const limpar = el('button', { type: 'button', class: 'cz-link' }, icone('fechar', 'cz-icone cz-icone-p'), el('span', { text: 'Ver todas as empresas' }));
-      limpar.addEventListener('click', aoLimparEvento);
-      aviso.append(limpar);
-      caixa.append(aviso);
-    }
+    if (evento) caixa.append(avisoEvento(evento, empresas.length, 'empresa', 'empresas', aoLimparEvento));
     if (!empresas.length) { caixa.append(el('p', { class: 'cz-vazio', text: 'Nenhuma empresa encontrada.' })); return; }
     const ul = el('ul', { class: 'cz-grade' });
     for (const e of empresas) {
       const lista = eventosDe(e.empresa);
       const n = Number(e.eventos) || 0;
-      const bolinhas = el('span', { class: 'cz-bolinhas', 'aria-hidden': 'true' });
-      if (totalEventos <= 12) for (let i = 0; i < totalEventos; i += 1) bolinhas.append(el('i', { class: i < n ? 'is-cheia' : '' }));
+      const bolinhas = bolinhasDe(n, totalEventos);
       const chips = el('span', { class: 'cz-chips' }, ...lista.map((x) => el('span', { class: `cz-chip${x.evento === evento ? ' is-ativo' : ''}`, text: x.evento })));
       const botao = el('button', { type: 'button', class: 'cz-empresa' },
         el('span', { class: 'cz-empresa-topo' }, el('span', { class: 'cz-empresa-nome', text: e.empresa }), tag(e.setor, corDoSetor && corDoSetor(e.setor))),
         el('span', { class: 'cz-empresa-medida' }, bolinhas, el('span', { text: `Esteve em ${fmtN(n)} de ${plural(totalEventos, 'evento', 'eventos')}` })),
         chips,
-        el('span', { class: 'cz-empresa-rodape' }, icone('pessoas', 'cz-icone cz-icone-p'), el('span', { text: plural(e.pessoas, 'pessoa', 'pessoas') })));
+        el('span', { class: 'cz-empresa-rodape' }, icone('pessoas', 'cz-icone cz-icone-p'), el('span', { text: Number(e.pessoas) ? plural(e.pessoas, 'pessoa', 'pessoas') : 'Pessoa não informada' })));
       botao.addEventListener('click', () => aoEscolher(e.empresa));
       ul.append(el('li', {}, botao));
     }
     caixa.append(ul);
+  }
+
+  /* ---------- Cartões das pessoas ---------- */
+
+  // pessoas: [{ chave, nome, empresa, setor, cargo, eventos, vezes, ultimo_contato }]
+  // eventosDe(chave) -> [{ evento, data }] em ordem de data
+  function desenhaPessoas(caixa, pessoas, opcoes) {
+    const { totalEventos, eventosDe, aoEscolher, corDoSetor, evento, aoLimparEvento, resumo } = opcoes;
+    caixa.replaceChildren();
+    if (evento) caixa.append(avisoEvento(evento, pessoas.length, 'pessoa', 'pessoas', aoLimparEvento));
+    else if (resumo) caixa.append(el('p', { class: 'cz-resumo-lista', text: resumo }));
+    if (!pessoas.length) { caixa.append(el('p', { class: 'cz-vazio', text: 'Nenhuma pessoa encontrada.' })); return; }
+    const ul = el('ul', { class: 'cz-grade' });
+    for (const p of pessoas) {
+      const n = Number(p.eventos) || 0;
+      const vezes = Number(p.vezes) || n;
+      const chips = el('span', { class: 'cz-chips' }, ...eventosDe(p.chave).map((x) => el('span', { class: `cz-chip${x.evento === evento ? ' is-ativo' : ''}`, text: x.evento })));
+      const ultimo = `Último encontro: ${fmtDataCurta(p.ultimo_contato)}${vezes > n ? `, ${plural(vezes, 'encontro', 'encontros')} no total` : ''}`;
+      const botao = el('button', { type: 'button', class: 'cz-empresa cz-cartao-pessoa' },
+        el('span', { class: 'cz-empresa-topo' }, el('span', { class: 'cz-empresa-nome', text: p.nome }), tag(p.setor, corDoSetor && corDoSetor(p.setor))),
+        el('span', { class: 'cz-pessoa-onde' }, icone('empresa', 'cz-icone cz-icone-p'), el('span', { text: p.cargo ? `${p.cargo}, ${p.empresa}` : p.empresa })),
+        el('span', { class: 'cz-empresa-medida' }, bolinhasDe(n, totalEventos), el('span', { text: `Esteve em ${fmtN(n)} de ${plural(totalEventos, 'evento', 'eventos')}` })),
+        chips,
+        el('span', { class: 'cz-empresa-rodape' }, icone('calendario', 'cz-icone cz-icone-p'), el('span', { text: ultimo })));
+      botao.addEventListener('click', () => aoEscolher(p.chave));
+      ul.append(el('li', {}, botao));
+    }
+    caixa.append(ul);
+  }
+
+  /* ---------- Detalhe de uma pessoa ---------- */
+
+  // info: { chave, nome, empresa, setor, cargo, eventos, vezes }
+  // linhas: encontros da pessoa [{ evento, data_evento, cargo, interacao, observacoes }]
+  function desenhaDetalhePessoa(caixa, info, linhas, opcoes) {
+    const { aoVoltar, aoVerEmpresa, corDoSetor } = opcoes;
+    caixa.replaceChildren();
+    const voltar = el('button', { type: 'button', class: 'cz-voltar' }, icone('voltar', 'cz-icone cz-icone-p'), el('span', { text: 'Todas as pessoas' }));
+    voltar.addEventListener('click', aoVoltar);
+    caixa.append(voltar);
+    if (!info) { caixa.append(el('p', { class: 'cz-vazio', text: 'Esta pessoa não está mais no mapa.' })); return; }
+    const grupos = new Map();
+    for (const l of linhas) {
+      const k = `${String(l.data_evento).slice(0, 10)}\u0000${l.evento}`;
+      if (!grupos.has(k)) grupos.set(k, { evento: l.evento, data: String(l.data_evento).slice(0, 10), itens: [] });
+      grupos.get(k).itens.push(l);
+    }
+    const ordem = [...grupos.values()].sort((a, b) => a.data.localeCompare(b.data) || porNome(a.evento, b.evento));
+    const primeiro = ordem[0];
+    const n = Number(info.eventos) || ordem.length;
+    const vezes = Number(info.vezes) || linhas.length;
+    const verEmpresa = el('button', { type: 'button', class: 'cz-link' }, icone('empresa', 'cz-icone cz-icone-p'), el('span', { text: `Ver a empresa ${info.empresa}` }));
+    verEmpresa.addEventListener('click', () => aoVerEmpresa(info.empresa));
+    caixa.append(
+      el('div', { class: 'cz-detalhe-topo' }, el('h3', { class: 'cz-detalhe-nome', text: info.nome }), tag(info.setor, corDoSetor && corDoSetor(info.setor))),
+      el('p', { class: 'cz-detalhe-sub', text: info.cargo ? `${info.cargo}, ${info.empresa}` : info.empresa }),
+      el('p', { class: 'cz-detalhe-frase', text: `Cruzou com a Capgemini em ${plural(n, 'evento', 'eventos')}${vezes > n ? ` (${plural(vezes, 'encontro', 'encontros')} no total)` : ''}.${primeiro ? ` O primeiro encontro foi em ${fmtDataCurta(primeiro.data)}, no ${primeiro.evento}.` : ''}` }),
+      verEmpresa,
+    );
+    const ol = el('ol', { class: 'cz-linha' });
+    for (const g of ordem) {
+      const ul = el('ul', { class: 'cz-pessoas' }, ...g.itens.map((item) => {
+        const tipo = item.interacao || 'Participou do evento';
+        const cargoDiferente = item.cargo && info.cargo && item.cargo !== info.cargo;
+        return el('li', { class: 'cz-pessoa' },
+          el('span', { class: 'cz-interacao' }, icone(ICONE_INTERACAO[tipo] || 'participou', 'cz-icone cz-icone-p'), el('span', { text: tipo })),
+          cargoDiferente ? el('span', { class: 'cz-pessoa-cargo', text: `Cargo na época: ${item.cargo}` }) : null,
+          item.observacoes ? el('span', { class: 'cz-pessoa-obs', text: item.observacoes }) : null);
+      }));
+      ol.append(el('li', { class: 'cz-linha-item' },
+        el('span', { class: 'cz-linha-ponto', 'aria-hidden': 'true' }),
+        el('div', { class: 'cz-linha-cabeca' }, el('span', { class: 'cz-linha-data', text: fmtDataCurta(g.data) }), el('span', { class: 'cz-linha-evento', text: g.evento })),
+        ul));
+    }
+    caixa.append(ol);
   }
 
   /* ---------- Detalhe de uma empresa ---------- */
@@ -172,7 +267,7 @@
   // info: { empresa, setor, eventos, pessoas, primeiro_contato, ultimo_contato }
   // linhas: interações da empresa [{ evento, data_evento, nome, cargo, interacao, observacoes }]
   function desenhaDetalhe(caixa, info, linhas, opcoes) {
-    const { aoVoltar, corDoSetor } = opcoes;
+    const { aoVoltar, corDoSetor, aoEscolherPessoa, chaveDaPessoa } = opcoes;
     caixa.replaceChildren();
     const voltar = el('button', { type: 'button', class: 'cz-voltar' }, icone('voltar', 'cz-icone cz-icone-p'), el('span', { text: 'Todas as empresas' }));
     voltar.addEventListener('click', aoVoltar);
@@ -195,8 +290,13 @@
       const pessoas = g.pessoas.sort((a, b) => porNome(a.nome, b.nome));
       const ul = el('ul', { class: 'cz-pessoas' }, ...pessoas.map((p) => {
         const tipo = p.interacao || 'Participou do evento';
+        let nome;
+        if (p.nome && aoEscolherPessoa && chaveDaPessoa) {
+          nome = el('button', { type: 'button', class: 'cz-pessoa-nome cz-pessoa-link', text: p.nome, title: 'Ver todos os encontros desta pessoa' });
+          nome.addEventListener('click', () => aoEscolherPessoa(chaveDaPessoa(p)));
+        } else nome = el('span', { class: 'cz-pessoa-nome', text: p.nome || 'Nome não informado' });
         return el('li', { class: 'cz-pessoa' },
-          el('span', { class: 'cz-pessoa-nome', text: p.nome || 'Nome não informado' }),
+          nome,
           p.cargo ? el('span', { class: 'cz-pessoa-cargo', text: p.cargo }) : null,
           el('span', { class: 'cz-interacao' }, icone(ICONE_INTERACAO[tipo] || 'participou', 'cz-icone cz-icone-p'), el('span', { text: tipo })),
           p.observacoes ? el('span', { class: 'cz-pessoa-obs', text: p.observacoes }) : null);
@@ -209,5 +309,5 @@
     caixa.append(ol);
   }
 
-  return { MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, el, icone, desenhaSetores, desenhaLinhaDoTempo, desenhaEmpresas, desenhaDetalhe };
+  return { MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, el, icone, desenhaSetores, desenhaLinhaDoTempo, desenhaAlternador, desenhaEmpresas, desenhaPessoas, desenhaDetalhe, desenhaDetalhePessoa };
 });

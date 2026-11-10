@@ -183,7 +183,9 @@
     calc: null,
     setor: 'Todos',
     evento: '',
+    visao: 'empresas',
     empresa: '',
+    pessoa: '',
     busca: '',
     aoVivo: 'conectando',
     online: 1,
@@ -393,10 +395,23 @@
       eventosPorEmpresa.get(c.empresa).push({ evento: c.evento, data: c.data });
     }
     for (const lista of eventosPorEmpresa.values()) lista.sort((a, b) => String(a.data).localeCompare(String(b.data)) || porNome(a.evento, b.evento));
-    estado.calc = { resumo: R.resumo(linhas), empresas, eventosPorEmpresa, porEvento: R.porEvento(linhas), lotes: R.lotes(linhas) };
+    const eventosPorPessoa = new Map();
+    const nomesPorEmpresa = new Map();
+    for (const l of linhas) {
+      if (!R.limpa(l.nome)) continue;
+      const k = R.chavePessoa(l);
+      if (!eventosPorPessoa.has(k)) eventosPorPessoa.set(k, new Map());
+      const mapa = eventosPorPessoa.get(k);
+      if (!mapa.has(l.evento)) mapa.set(l.evento, { evento: l.evento, data: String(l.data_evento || '').slice(0, 10) });
+      nomesPorEmpresa.set(l.empresa, `${nomesPorEmpresa.get(l.empresa) || ''} ${l.nome}`);
+    }
+    for (const [k, mapa] of eventosPorPessoa) eventosPorPessoa.set(k, [...mapa.values()].sort((a, b) => a.data.localeCompare(b.data) || porNome(a.evento, b.evento)));
+    const pessoas = R.porPessoa(linhas);
+    estado.calc = { resumo: R.resumo(linhas), empresas, eventosPorEmpresa, pessoas, eventosPorPessoa, nomesPorEmpresa, porEvento: R.porEvento(linhas), lotes: R.lotes(linhas) };
     const setores = new Set(estado.calc.resumo.map((r) => r.setor));
     if (!setores.has(estado.setor)) estado.setor = 'Todos';
     if (estado.empresa && !empresas.some((e) => e.empresa === estado.empresa)) estado.empresa = '';
+    if (estado.pessoa && !pessoas.some((p) => p.chave === estado.pessoa)) estado.pessoa = '';
     if (estado.evento && !estado.calc.porEvento.some((e) => e.evento === estado.evento)) estado.evento = '';
   }
 
@@ -413,7 +428,7 @@
     if (!temDados) return;
     desenhaNumeros();
     desenhaEventos();
-    desenhaEmpresasOuDetalhe();
+    desenhaLista();
   }
 
   function desenhaNumeros() {
@@ -429,8 +444,9 @@
     V.desenhaLinhaDoTempo($('#linha-eventos'), eventos, estado.evento, (evento) => {
       estado.evento = evento;
       estado.empresa = '';
+      estado.pessoa = '';
       desenhaEventos();
-      desenhaEmpresasOuDetalhe();
+      desenhaLista();
       if (evento) rolaPara('#empresas');
     });
     // Deixa o evento escolhido à vista na linha do tempo.
@@ -439,46 +455,86 @@
     if (ativo) caixa.scrollLeft = Math.max(0, ativo.parentElement.offsetLeft - caixa.clientWidth / 2 + ativo.offsetWidth / 2);
   }
 
+  const foiAoEvento = (lista) => !estado.evento || (lista || []).some((x) => x.evento === estado.evento);
+
   function empresasVisiveis() {
     const busca = R.chave(estado.busca);
     return estado.calc.empresas
       .filter((e) => estado.setor === 'Todos' || e.setor === estado.setor)
-      .filter((e) => !estado.evento || (estado.calc.eventosPorEmpresa.get(e.empresa) || []).some((x) => x.evento === estado.evento))
-      .filter((e) => !busca || R.chave(`${e.empresa} ${e.setor}`).includes(busca))
+      .filter((e) => foiAoEvento(estado.calc.eventosPorEmpresa.get(e.empresa)))
+      .filter((e) => !busca || R.chave(`${e.empresa} ${e.setor} ${estado.calc.nomesPorEmpresa.get(e.empresa) || ''}`).includes(busca))
       .sort((a, b) => b.eventos - a.eventos || b.pessoas - a.pessoas || porNome(a.empresa, b.empresa));
   }
 
-  function desenhaEmpresasOuDetalhe() {
-    const grade = $('#grade-empresas');
-    const detalhe = $('#detalhe-empresa');
-    const filtros = $('#area-filtros');
-    if (estado.empresa) {
-      grade.hidden = true;
-      filtros.hidden = true;
-      detalhe.hidden = false;
-      const info = estado.calc.empresas.find((e) => e.empresa === estado.empresa);
-      const linhas = estado.linhas.filter((l) => l.empresa === estado.empresa);
-      V.desenhaDetalhe(detalhe, info, linhas, { corDoSetor, aoVoltar: () => { estado.empresa = ''; desenhaEmpresasOuDetalhe(); rolaPara('#empresas'); } });
+  function pessoasVisiveis() {
+    const busca = R.chave(estado.busca);
+    return estado.calc.pessoas
+      .filter((p) => estado.setor === 'Todos' || p.setor === estado.setor)
+      .filter((p) => foiAoEvento(estado.calc.eventosPorPessoa.get(p.chave)))
+      .filter((p) => !busca || R.chave(`${p.nome} ${p.empresa} ${p.cargo}`).includes(busca))
+      .sort((a, b) => b.eventos - a.eventos || b.vezes - a.vezes || porNome(a.nome, b.nome));
+  }
+
+  const abrePessoa = (chave) => { estado.pessoa = chave; estado.empresa = ''; estado.visao = 'pessoas'; desenhaLista(); rolaPara('#empresas'); };
+  const abreEmpresa = (empresa) => { estado.empresa = empresa; estado.pessoa = ''; estado.visao = 'empresas'; desenhaLista(); rolaPara('#empresas'); };
+
+  function desenhaLista() {
+    const mostrando = estado.pessoa ? 'pessoa' : (estado.empresa ? 'empresa' : estado.visao);
+    $('#area-filtros').hidden = mostrando === 'pessoa' || mostrando === 'empresa';
+    $('#grade-empresas').hidden = mostrando !== 'empresas';
+    $('#grade-pessoas').hidden = mostrando !== 'pessoas';
+    $('#detalhe-empresa').hidden = mostrando !== 'empresa';
+    $('#detalhe-pessoa').hidden = mostrando !== 'pessoa';
+
+    if (mostrando === 'pessoa') {
+      const info = estado.calc.pessoas.find((p) => p.chave === estado.pessoa);
+      const linhas = estado.linhas.filter((l) => R.limpa(l.nome) && R.chavePessoa(l) === estado.pessoa);
+      V.desenhaDetalhePessoa($('#detalhe-pessoa'), info, linhas, {
+        corDoSetor,
+        aoVoltar: () => { estado.pessoa = ''; estado.visao = 'pessoas'; desenhaLista(); rolaPara('#empresas'); },
+        aoVerEmpresa: abreEmpresa,
+      });
       return;
     }
-    detalhe.hidden = true;
-    grade.hidden = false;
-    filtros.hidden = false;
-    const contagem = estado.calc.resumo.map((r) => ({ setor: r.setor, empresas: r.empresas }));
+    if (mostrando === 'empresa') {
+      const info = estado.calc.empresas.find((e) => e.empresa === estado.empresa);
+      const linhas = estado.linhas.filter((l) => l.empresa === estado.empresa);
+      V.desenhaDetalhe($('#detalhe-empresa'), info, linhas, {
+        corDoSetor,
+        aoVoltar: () => { estado.empresa = ''; estado.visao = 'empresas'; desenhaLista(); rolaPara('#empresas'); },
+        aoEscolherPessoa: abrePessoa,
+        chaveDaPessoa: R.chavePessoa,
+      });
+      return;
+    }
+
+    const r = estado.calc.resumo.find((x) => x.setor === estado.setor) || estado.calc.resumo[0];
+    V.desenhaAlternador($('#alternador'), estado.visao, { empresas: r.empresas, pessoas: r.pessoas }, (visao) => { estado.visao = visao; desenhaLista(); });
+    const contagem = estado.calc.resumo.map((x) => ({ setor: x.setor, empresas: estado.visao === 'pessoas' ? x.pessoas : x.empresas }));
     V.desenhaSetores($('#chips-setor'), contagem, estado.setor, (setor) => {
       estado.setor = setor;
       estado.evento = '';
       desenhaTudo();
     }, corDoSetor);
     const totalEventos = (estado.calc.resumo[0] || {}).eventos || 0;
-    V.desenhaEmpresas(grade, empresasVisiveis(), {
-      totalEventos,
-      evento: estado.evento,
-      corDoSetor,
-      eventosDe: (empresa) => estado.calc.eventosPorEmpresa.get(empresa) || [],
-      aoEscolher: (empresa) => { estado.empresa = empresa; desenhaEmpresasOuDetalhe(); rolaPara('#empresas'); },
-      aoLimparEvento: () => { estado.evento = ''; desenhaEventos(); desenhaEmpresasOuDetalhe(); },
-    });
+    const aoLimparEvento = () => { estado.evento = ''; desenhaEventos(); desenhaLista(); };
+    if (estado.visao === 'pessoas') {
+      let resumo = `${plural(r.pessoas, 'pessoa', 'pessoas')} no mapa.`;
+      if (r.pessoas > 1) resumo += r.pessoas_recorrentes ? ` ${fmtN(r.pessoas_recorrentes)} ${r.pessoas_recorrentes === 1 ? 'delas esteve' : 'delas estiveram'} em mais de um evento.` : ' Cada uma esteve em um evento até agora.';
+      V.desenhaPessoas($('#grade-pessoas'), pessoasVisiveis(), {
+        totalEventos, evento: estado.evento, corDoSetor, resumo,
+        eventosDe: (chave) => estado.calc.eventosPorPessoa.get(chave) || [],
+        aoEscolher: abrePessoa,
+        aoLimparEvento,
+      });
+    } else {
+      V.desenhaEmpresas($('#grade-empresas'), empresasVisiveis(), {
+        totalEventos, evento: estado.evento, corDoSetor,
+        eventosDe: (empresa) => estado.calc.eventosPorEmpresa.get(empresa) || [],
+        aoEscolher: abreEmpresa,
+        aoLimparEvento,
+      });
+    }
   }
 
   const rolaPara = (seletor) => requestAnimationFrame(() => {
@@ -795,6 +851,7 @@
       fechaJanela($('#dlg-subir'));
       estado.evento = p.eventos.length === 1 ? p.eventos[0].evento : '';
       estado.empresa = '';
+      estado.pessoa = '';
       avisa(estado.demo
         ? `Pronto: ${plural(enviados, 'pessoa entrou', 'pessoas entraram')} no mapa (só nesta demonstração).`
         : `Pronto: ${plural(enviados, 'pessoa entrou', 'pessoas entraram')} no mapa. Quem está com o site aberto já está vendo.`);
@@ -817,7 +874,7 @@
     $('#botao-sair').addEventListener('click', async () => {
       try { await sb.auth.signOut(); } finally { saiu(); }
     });
-    $('#busca').addEventListener('input', (e) => { estado.busca = e.target.value; desenhaEmpresasOuDetalhe(); });
+    $('#busca').addEventListener('input', (e) => { estado.busca = e.target.value; desenhaLista(); });
 
     $('#botao-subir').addEventListener('click', abreSubir);
     $$('[data-acao="subir"]').forEach((b) => b.addEventListener('click', abreSubir));

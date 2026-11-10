@@ -58,7 +58,7 @@
       <section class="abertura">
         <div>
           <h1 class="abertura-titulo">Quais clientes encontraram a Capgemini nos nossos eventos</h1>
-          <p class="abertura-texto">Cada evento tem a lista de quem passou por lá. Aqui você vê quem foi, quando e quantas vezes cada empresa voltou.</p>
+          <p class="abertura-texto">Cada evento tem a lista de quem passou por lá. Aqui você vê quem foi, quando e quantas vezes cada empresa e cada pessoa voltou.</p>
         </div>
         <div class="abertura-acoes">
           <button id="botao-subir" type="button" class="botao botao-principal botao-grande"><span data-icone="subir"></span>Subir lista de um evento</button>
@@ -82,7 +82,7 @@
       <div id="painel" hidden>
         <section class="numeros" aria-label="Resumo">
           <div class="numero"><span class="numero-icone" data-icone="empresa"></span><span class="numero-valor" id="num-empresas">—</span><span class="numero-texto">empresas encontraram a gente</span></div>
-          <div class="numero"><span class="numero-icone" data-icone="volta"></span><span class="numero-valor" id="num-recorrentes">—</span><span class="numero-texto">voltaram em mais de um evento</span></div>
+          <div class="numero"><span class="numero-icone" data-icone="volta"></span><span class="numero-valor" id="num-recorrentes">—</span><span class="numero-texto">empresas voltaram em mais de um evento</span></div>
           <div class="numero"><span class="numero-icone" data-icone="pessoas"></span><span class="numero-valor" id="num-pessoas">—</span><span class="numero-texto">pessoas de clientes</span></div>
           <div class="numero"><span class="numero-icone" data-icone="calendario"></span><span class="numero-valor" id="num-eventos">—</span><span class="numero-texto">eventos com lista</span></div>
         </section>
@@ -98,15 +98,20 @@
 
         <section class="bloco" id="empresas">
           <div class="bloco-topo">
-            <h2>Empresas</h2>
-            <p class="nota">As que mais vieram aparecem primeiro. Clique numa empresa para ver cada encontro.</p>
+            <h2>Quem encontrou a gente</h2>
+            <p class="nota">Veja por empresa ou por pessoa. Quem mais veio aparece primeiro; clique para ver cada encontro.</p>
           </div>
-          <div id="area-filtros" class="filtros">
-            <div id="chips-setor" class="filtros-setor" role="group" aria-label="Filtrar por setor"></div>
-            <input id="busca" class="busca" type="search" placeholder="Procurar empresa" aria-label="Procurar empresa">
+          <div id="area-filtros" class="filtros-area">
+            <div id="alternador"></div>
+            <div class="filtros">
+              <div id="chips-setor" class="filtros-setor" role="group" aria-label="Filtrar por setor"></div>
+              <input id="busca" class="busca" type="search" placeholder="Procurar nome ou empresa" aria-label="Procurar nome ou empresa">
+            </div>
           </div>
           <div id="grade-empresas"></div>
+          <div id="grade-pessoas" hidden></div>
           <div id="detalhe-empresa" class="detalhe" hidden></div>
+          <div id="detalhe-pessoa" class="detalhe" hidden></div>
         </section>
       </div>
     </main>

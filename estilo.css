@@ -166,6 +166,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .cz-filtro-evento { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 14px; border-radius: 12px; background: var(--tinta); margin-bottom: 14px; }
 .cz-link { font: inherit; font-size: 0.9rem; color: var(--destaque); background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
 
+/* Empresas ou pessoas */
+.filtros-area { display: grid; gap: 14px; }
+.cz-alternador { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--painel); border: 1px solid var(--borda); }
+.cz-alternar { font: inherit; font-size: 0.95rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; border: 0; background: transparent; color: var(--texto-suave); }
+.cz-alternar:hover { color: var(--texto); }
+.cz-alternar.is-ativo { background: var(--destaque); color: var(--sobre-destaque); }
+.cz-alternar-num { font-size: 0.8rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.cz-resumo-lista { margin-bottom: 14px; color: var(--texto-suave); }
+.cz-pessoa-onde { display: flex; align-items: flex-start; gap: 6px; font-size: 0.88rem; color: var(--texto-suave); line-height: 1.35; }
+.cz-pessoa-onde svg { margin-top: 1px; }
+.cz-detalhe-sub { color: var(--texto-suave); margin-top: -6px; }
+.cz-pessoa-link { font: inherit; font-weight: 500; color: var(--destaque); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--destaque) 40%, transparent); text-underline-offset: 3px; }
+.cz-pessoa-link:hover { text-decoration-color: currentColor; }
+
 /* Cartões das empresas */
 .cz-grade { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 14px; }
 .cz-grade li { display: flex; }

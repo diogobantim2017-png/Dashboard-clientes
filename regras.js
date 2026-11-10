@@ -424,11 +424,19 @@
         if (!eventosPorEmpresa.has(l.empresa)) eventosPorEmpresa.set(l.empresa, new Set());
         eventosPorEmpresa.get(l.empresa).add(l.evento);
       }
+      const eventosPorPessoa = new Map();
+      for (const l of ls) {
+        if (!limpa(l.nome)) continue;
+        const k = pessoa(l);
+        if (!eventosPorPessoa.has(k)) eventosPorPessoa.set(k, new Set());
+        eventosPorPessoa.get(k).add(l.evento);
+      }
       return {
         setor,
         empresas: eventosPorEmpresa.size,
         recorrentes: [...eventosPorEmpresa.values()].filter((s) => s.size >= 2).length,
-        pessoas: new Set(ls.map(pessoa)).size,
+        pessoas: eventosPorPessoa.size,
+        pessoas_recorrentes: [...eventosPorPessoa.values()].filter((s) => s.size >= 2).length,
         eventos: new Set(ls.map((l) => l.evento)).size,
       };
     };
@@ -455,7 +463,7 @@
       if (!m.has(l.empresa)) m.set(l.empresa, { empresa: l.empresa, setor: l.setor || SEM_SETOR, eventos: new Set(), pessoas: new Set(), datas: [] });
       const e = m.get(l.empresa);
       e.eventos.add(l.evento);
-      e.pessoas.add(pessoa(l));
+      if (limpa(l.nome)) e.pessoas.add(pessoa(l));
       e.datas.push(dia(l));
     }
     return [...m.values()].map((e) => {
@@ -485,6 +493,25 @@
     });
   };
 
+  // Uma linha por pessoa (nome + empresa): em quantos eventos e quantas vezes cruzou com a gente.
+  const porPessoa = (linhas) => {
+    const m = new Map();
+    for (const l of linhas) {
+      if (!limpa(l.nome)) continue;
+      const k = pessoa(l);
+      if (!m.has(k)) m.set(k, { chave: k, nome: limpa(l.nome), empresa: l.empresa, setor: l.setor || SEM_SETOR, cargo: '', dataCargo: '', eventos: new Set(), vezes: 0, datas: [] });
+      const p = m.get(k);
+      p.eventos.add(l.evento);
+      p.vezes += 1;
+      p.datas.push(dia(l));
+      if (limpa(l.cargo) && dia(l) >= p.dataCargo) { p.cargo = limpa(l.cargo); p.dataCargo = dia(l); }
+    }
+    return [...m.values()].map((p) => {
+      const datas = p.datas.sort();
+      return { chave: p.chave, nome: p.nome, empresa: p.empresa, setor: p.setor, cargo: p.cargo, eventos: p.eventos.size, vezes: p.vezes, primeiro_contato: datas[0], ultimo_contato: datas[datas.length - 1] };
+    });
+  };
+
   const lotes = (linhas) => {
     const m = new Map();
     for (const l of linhas) {
@@ -503,6 +530,6 @@
     semAcento, limpa, chave, capitaliza, tiraSufixos, empresaExibicao, chaveEmpresa, ehCapgemini,
     dominio, dominioCorporativo, empresaDoDominio, normalizaSetor, inferirSetor, normalizaInteracao, dataISO,
     mapeiaColunas, achaCabecalho, lerCSV, chaveLinha, preparaLinhas,
-    resumo, cruzamentos, porEmpresa, porEvento, lotes,
+    resumo, cruzamentos, porEmpresa, porEvento, porPessoa, lotes, chavePessoa: pessoa,
   };
 });
