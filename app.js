@@ -11,8 +11,8 @@
   const cfg = window.CRUZ_CONFIG || {};
   const TABELA = 'cruz_interacoes';
   const TABELA_APELIDOS = 'cruz_apelidos';
-  const VERSAO = '5';
-  const COLUNAS = 'id,evento,data_evento,empresa,setor,nome,cargo,interacao,observacoes,lote,arquivo,enviado_por,enviado_por_nome,enviado_por_id,criado_em';
+  const VERSAO = '6';
+  const COLUNAS = 'id,evento,data_evento,empresa,setor,nome,cargo,interacao,observacoes,lote,arquivo,enviado_por,enviado_por_nome,enviado_por_id,criado_em,mu,grade,lista';
 
   // Sugestões de eventos (o site também usa os que já estão no banco).
   const EVENTOS_SUGERIDOS = [
@@ -40,6 +40,7 @@
   const $ = (seletor, raiz = document) => raiz.querySelector(seletor);
   const $$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
   const { el, fmtN, fmtData, plural, porNome } = V || {};
+  const corDe = (valor) => corDoSetor(valor);
   const fmtQuando = (iso) => {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '';
@@ -99,7 +100,10 @@
     linhas: [],
     apelidos: [],
     calc: null,
+    ano: 'Todos',
+    mu: 'Todas',
     setor: 'Todos',
+    grade: '',
     evento: '',
     visao: 'empresas',
     empresa: '',
@@ -302,38 +306,100 @@
     else texto.textContent = 'Reconectando…';
   }
 
-  /* ---------- Cálculos ---------- */
+  /* ---------- Filtros e cálculos ---------- */
+
+  const anoDaLinha = (l) => R.anoDe(l.data_evento);
+  const muDaLinha = (l) => R.limpa(l.mu) || R.SEM_MU;
+  const setorDaLinha = (l) => l.setor || R.SEM_SETOR;
+  const gradeDaLinha = (l) => R.limpa(l.grade) || R.SEM_GRADE;
+
+  // Linhas que passam pelos filtros. "ignorar" deixa um filtro de fora, para contar as opções dele.
+  const filtradas = (ignorar = '') => estado.linhas.filter((l) => (ignorar === 'ano' || estado.ano === 'Todos' || anoDaLinha(l) === estado.ano)
+    && (ignorar === 'mu' || estado.mu === 'Todas' || muDaLinha(l) === estado.mu)
+    && (ignorar === 'setor' || estado.setor === 'Todos' || setorDaLinha(l) === estado.setor)
+    && (ignorar === 'grade' || !estado.grade || gradeDaLinha(l) === estado.grade));
+
+  const empresasPor = (linhas, chaveDe) => {
+    const m = new Map();
+    for (const l of linhas) {
+      const k = chaveDe(l);
+      if (!m.has(k)) m.set(k, new Set());
+      m.get(k).add(l.empresa);
+    }
+    return m;
+  };
 
   function calcula() {
-    const linhas = estado.linhas;
-    const empresas = R.porEmpresa(linhas);
-    const eventosPorEmpresa = new Map();
-    for (const c of R.cruzamentos(linhas)) {
-      if (!eventosPorEmpresa.has(c.empresa)) eventosPorEmpresa.set(c.empresa, []);
-      eventosPorEmpresa.get(c.empresa).push({ evento: c.evento, data: c.data });
-    }
-    for (const lista of eventosPorEmpresa.values()) lista.sort((a, b) => String(a.data).localeCompare(String(b.data)) || porNome(a.evento, b.evento));
-    const eventosPorPessoa = new Map();
-    const nomesPorEmpresa = new Map();
-    for (const l of linhas) {
+    const todas = estado.linhas;
+    const anos = [...new Set(todas.map(anoDaLinha))].filter(Boolean).sort();
+    const temMU = todas.some((l) => R.limpa(l.mu));
+    if (estado.ano !== 'Todos' && !anos.includes(estado.ano)) estado.ano = 'Todos';
+    if (estado.mu !== 'Todas' && !todas.some((l) => muDaLinha(l) === estado.mu)) estado.mu = 'Todas';
+    if (estado.setor !== 'Todos' && !todas.some((l) => setorDaLinha(l) === estado.setor)) estado.setor = 'Todos';
+    if (estado.grade && !todas.some((l) => gradeDaLinha(l) === estado.grade)) estado.grade = '';
+    const visiveis = filtradas();
+
+    const anosEmpresa = new Map();
+    const anosPessoa = new Map();
+    for (const l of todas) {
+      const ano = anoDaLinha(l);
+      if (!anosEmpresa.has(l.empresa)) anosEmpresa.set(l.empresa, new Set());
+      anosEmpresa.get(l.empresa).add(ano);
       if (!R.limpa(l.nome)) continue;
       const k = R.chavePessoa(l);
-      if (!eventosPorPessoa.has(k)) eventosPorPessoa.set(k, new Map());
-      const mapa = eventosPorPessoa.get(k);
-      if (!mapa.has(l.evento)) mapa.set(l.evento, { evento: l.evento, data: String(l.data_evento || '').slice(0, 10) });
+      if (!anosPessoa.has(k)) anosPessoa.set(k, new Set());
+      anosPessoa.get(k).add(ano);
+    }
+    // Com um ano escolhido, mostra em quais outros anos a empresa ou a pessoa também interagiu.
+    const outros = (mapa, k) => (estado.ano === 'Todos' ? [] : [...(mapa.get(k) || [])].filter((a) => a && a !== estado.ano).sort());
+
+    const eventosPorEmpresa = new Map();
+    const eventosPorPessoa = new Map();
+    const nomesPorEmpresa = new Map();
+    const guarda = (mapa, k, l) => {
+      if (!mapa.has(k)) mapa.set(k, new Map());
+      if (!mapa.get(k).has(l.evento)) mapa.get(k).set(l.evento, { evento: l.evento, data: String(l.data_evento || '').slice(0, 10) });
+    };
+    for (const l of visiveis) {
+      guarda(eventosPorEmpresa, l.empresa, l);
+      if (!R.limpa(l.nome)) continue;
+      guarda(eventosPorPessoa, R.chavePessoa(l), l);
       nomesPorEmpresa.set(l.empresa, `${nomesPorEmpresa.get(l.empresa) || ''} ${l.nome}`);
     }
-    for (const [k, mapa] of eventosPorPessoa) eventosPorPessoa.set(k, [...mapa.values()].sort((a, b) => a.data.localeCompare(b.data) || porNome(a.evento, b.evento)));
-    const pessoas = R.porPessoa(linhas);
-    estado.calc = { resumo: R.resumo(linhas), empresas, eventosPorEmpresa, pessoas, eventosPorPessoa, nomesPorEmpresa, porEvento: R.porEvento(linhas), lotes: R.lotes(linhas) };
-    const setores = new Set(estado.calc.resumo.map((r) => r.setor));
-    if (!setores.has(estado.setor)) estado.setor = 'Todos';
-    if (estado.empresa && !empresas.some((e) => e.empresa === estado.empresa)) estado.empresa = '';
-    if (estado.pessoa && !pessoas.some((p) => p.chave === estado.pessoa)) estado.pessoa = '';
+    const ordena = (mapa) => {
+      for (const [k, m] of mapa) mapa.set(k, [...m.values()].sort((a, b) => a.data.localeCompare(b.data) || porNome(a.evento, b.evento)));
+      return mapa;
+    };
+
+    const resumo = R.resumo(visiveis)[0] || { empresas: 0, recorrentes: 0, pessoas: 0, pessoas_recorrentes: 0, eventos: 0 };
+    estado.calc = {
+      anos,
+      temMU,
+      visiveis,
+      resumo,
+      totalEventos: new Set(visiveis.map((l) => l.evento)).size,
+      empresas: R.porEmpresa(visiveis).map((e) => ({ ...e, outrosAnos: outros(anosEmpresa, e.empresa) })),
+      pessoas: R.porPessoa(visiveis).map((p) => ({ ...p, outrosAnos: outros(anosPessoa, p.chave) })),
+      eventosPorEmpresa: ordena(eventosPorEmpresa),
+      eventosPorPessoa: ordena(eventosPorPessoa),
+      nomesPorEmpresa,
+      porEvento: R.porEvento(visiveis).filter((e) => e.setor === 'Todos'),
+      grades: R.porGrade(filtradas('grade')),
+      opAno: empresasPor(filtradas('ano'), anoDaLinha),
+      opMu: empresasPor(filtradas('mu'), muDaLinha),
+      opSetor: empresasPor(filtradas('setor'), setorDaLinha),
+      empresasTodas: R.porEmpresa(todas),
+      pessoasTodas: R.porPessoa(todas),
+      lotes: R.lotes(todas),
+      listas: R.listas(todas),
+    };
+    if (estado.empresa && !estado.calc.empresasTodas.some((e) => e.empresa === estado.empresa)) estado.empresa = '';
+    if (estado.pessoa && !estado.calc.pessoasTodas.some((p) => p.chave === estado.pessoa)) estado.pessoa = '';
     if (estado.evento && !estado.calc.porEvento.some((e) => e.evento === estado.evento)) estado.evento = '';
   }
 
-  const setorDaEmpresa = (empresa) => (estado.calc.empresas.find((e) => e.empresa === empresa) || {}).setor || R.SEM_SETOR;
+  const setorDaEmpresa = (empresa) => (estado.calc.empresasTodas.find((e) => e.empresa === empresa) || {}).setor || R.SEM_SETOR;
+  const refaz = () => { calcula(); desenhaTudo(); };
 
   /* ---------- Desenho ---------- */
 
@@ -343,22 +409,49 @@
     $('#vazio').hidden = temDados;
     $('#painel').hidden = !temDados;
     if (!temDados) return;
+    desenhaFiltros();
     desenhaNumeros();
     desenhaEventos();
+    desenhaGrades();
     desenhaLista();
   }
 
+  function desenhaFiltros() {
+    const c = estado.calc;
+    $('#linha-ano').hidden = c.anos.length < 2;
+    V.desenhaChips($('#chips-ano'), [{ valor: 'Todos', rotulo: 'Todos os anos' },
+      ...c.anos.map((a) => ({ valor: a, rotulo: a, n: (c.opAno.get(a) || new Set()).size }))], estado.ano,
+    (ano) => { estado.ano = ano; estado.evento = ''; refaz(); });
+
+    $('#linha-mu').hidden = !c.temMU;
+    const mus = [...c.opMu.keys()].sort((a, b) => (a === R.SEM_MU) - (b === R.SEM_MU) || porNome(a, b));
+    V.desenhaChips($('#chips-mu'), [{ valor: 'Todas', rotulo: 'Todas as MUs' },
+      ...mus.map((m) => ({ valor: m, rotulo: m, n: c.opMu.get(m).size, cor: m === R.SEM_MU ? null : corDe(m) }))], estado.mu,
+    (mu) => { estado.mu = mu; estado.evento = ''; refaz(); });
+
+    $('#linha-setor').hidden = c.temMU;
+    const setores = [...c.opSetor.keys()].sort((a, b) => (a === R.SEM_SETOR) - (b === R.SEM_SETOR) || porNome(a, b));
+    V.desenhaChips($('#chips-setor'), [{ valor: 'Todos', rotulo: 'Todos os setores' },
+      ...setores.map((x) => ({ valor: x, rotulo: x, n: c.opSetor.get(x).size, cor: x === R.SEM_SETOR ? null : corDe(x) }))], estado.setor,
+    (setor) => { estado.setor = setor; estado.evento = ''; refaz(); });
+
+    $('#linha-grade').hidden = !estado.grade;
+    const limpar = el('button', { type: 'button', class: 'cz-link', 'aria-label': 'Tirar o filtro de grade' }, V.icone('fechar', 'cz-icone cz-icone-p'));
+    limpar.addEventListener('click', () => { estado.grade = ''; refaz(); });
+    $('#pilula-grade').replaceChildren(el('span', { class: 'cz-pilula' }, el('span', { text: estado.grade }), limpar));
+  }
+
   function desenhaNumeros() {
-    const r = estado.calc.resumo.find((x) => x.setor === estado.setor) || estado.calc.resumo[0];
+    const r = estado.calc.resumo;
     $('#num-empresas').textContent = fmtN(r.empresas);
-    $('#num-recorrentes').textContent = fmtN(r.recorrentes);
+    $('#num-empresas-texto').textContent = r.recorrentes ? `empresas, ${fmtN(r.recorrentes)} em mais de um evento` : 'empresas encontraram a gente';
     $('#num-pessoas').textContent = fmtN(r.pessoas);
+    $('#num-interacoes').textContent = fmtN(estado.calc.visiveis.length);
     $('#num-eventos').textContent = fmtN(r.eventos);
   }
 
   function desenhaEventos() {
-    const eventos = estado.calc.porEvento.filter((e) => e.setor === estado.setor);
-    V.desenhaLinhaDoTempo($('#linha-eventos'), eventos, estado.evento, (evento) => {
+    V.desenhaLinhaDoTempo($('#linha-eventos'), estado.calc.porEvento, estado.evento, (evento) => {
       estado.evento = evento;
       estado.empresa = '';
       estado.pessoa = '';
@@ -366,10 +459,20 @@
       desenhaLista();
       if (evento) rolaPara('#empresas');
     });
-    // Deixa o evento escolhido à vista na linha do tempo.
     const caixa = $('#linha-eventos');
     const ativo = caixa.querySelector('.cz-evento.is-ativo');
     if (ativo) caixa.scrollLeft = Math.max(0, ativo.parentElement.offsetLeft - caixa.clientWidth / 2 + ativo.offsetWidth / 2);
+  }
+
+  function desenhaGrades() {
+    V.desenhaGrades($('#grades'), estado.calc.grades, estado.grade, (grade) => {
+      estado.grade = grade;
+      estado.visao = 'pessoas';
+      estado.empresa = '';
+      estado.pessoa = '';
+      refaz();
+      if (grade) rolaPara('#empresas');
+    });
   }
 
   const foiAoEvento = (lista) => !estado.evento || (lista || []).some((x) => x.evento === estado.evento);
@@ -377,18 +480,16 @@
   function empresasVisiveis() {
     const busca = R.chave(estado.busca);
     return estado.calc.empresas
-      .filter((e) => estado.setor === 'Todos' || e.setor === estado.setor)
       .filter((e) => foiAoEvento(estado.calc.eventosPorEmpresa.get(e.empresa)))
-      .filter((e) => !busca || R.chave(`${e.empresa} ${e.setor} ${estado.calc.nomesPorEmpresa.get(e.empresa) || ''}`).includes(busca))
-      .sort((a, b) => b.eventos - a.eventos || b.pessoas - a.pessoas || porNome(a.empresa, b.empresa));
+      .filter((e) => !busca || R.chave(`${e.empresa} ${e.mu} ${e.setor} ${estado.calc.nomesPorEmpresa.get(e.empresa) || ''}`).includes(busca))
+      .sort((a, b) => b.eventos - a.eventos || b.interacoes - a.interacoes || b.pessoas - a.pessoas || porNome(a.empresa, b.empresa));
   }
 
   function pessoasVisiveis() {
     const busca = R.chave(estado.busca);
     return estado.calc.pessoas
-      .filter((p) => estado.setor === 'Todos' || p.setor === estado.setor)
       .filter((p) => foiAoEvento(estado.calc.eventosPorPessoa.get(p.chave)))
-      .filter((p) => !busca || R.chave(`${p.nome} ${p.empresa} ${p.cargo}`).includes(busca))
+      .filter((p) => !busca || R.chave(`${p.nome} ${p.empresa} ${p.cargo} ${p.grade} ${p.mu}`).includes(busca))
       .sort((a, b) => b.eventos - a.eventos || b.vezes - a.vezes || porNome(a.nome, b.nome));
   }
 
@@ -404,20 +505,20 @@
     $('#detalhe-pessoa').hidden = mostrando !== 'pessoa';
 
     if (mostrando === 'pessoa') {
-      const info = estado.calc.pessoas.find((p) => p.chave === estado.pessoa);
+      const info = estado.calc.pessoasTodas.find((p) => p.chave === estado.pessoa);
       const linhas = estado.linhas.filter((l) => R.limpa(l.nome) && R.chavePessoa(l) === estado.pessoa);
       V.desenhaDetalhePessoa($('#detalhe-pessoa'), info, linhas, {
-        corDoSetor,
+        corDe,
         aoVoltar: () => { estado.pessoa = ''; estado.visao = 'pessoas'; desenhaLista(); rolaPara('#empresas'); },
         aoVerEmpresa: abreEmpresa,
       });
       return;
     }
     if (mostrando === 'empresa') {
-      const info = estado.calc.empresas.find((e) => e.empresa === estado.empresa);
+      const info = estado.calc.empresasTodas.find((e) => e.empresa === estado.empresa);
       const linhas = estado.linhas.filter((l) => l.empresa === estado.empresa);
       V.desenhaDetalhe($('#detalhe-empresa'), info, linhas, {
-        corDoSetor,
+        corDe,
         aoVoltar: () => { estado.empresa = ''; estado.visao = 'empresas'; desenhaLista(); rolaPara('#empresas'); },
         aoEscolherPessoa: abrePessoa,
         chaveDaPessoa: R.chavePessoa,
@@ -425,32 +526,21 @@
       return;
     }
 
-    const r = estado.calc.resumo.find((x) => x.setor === estado.setor) || estado.calc.resumo[0];
+    const r = estado.calc.resumo;
     V.desenhaAlternador($('#alternador'), estado.visao, { empresas: r.empresas, pessoas: r.pessoas }, (visao) => { estado.visao = visao; desenhaLista(); });
-    const contagem = estado.calc.resumo.map((x) => ({ setor: x.setor, empresas: estado.visao === 'pessoas' ? x.pessoas : x.empresas }));
-    V.desenhaSetores($('#chips-setor'), contagem, estado.setor, (setor) => {
-      estado.setor = setor;
-      estado.evento = '';
-      desenhaTudo();
-    }, corDoSetor);
-    const totalEventos = (estado.calc.resumo[0] || {}).eventos || 0;
-    const aoLimparEvento = () => { estado.evento = ''; desenhaEventos(); desenhaLista(); };
+    const filtros = estado.evento ? [{ texto: `Quem foi ao ${estado.evento}`, aoLimpar: () => { estado.evento = ''; desenhaEventos(); desenhaLista(); } }] : [];
+    const comum = {
+      totalEventos: estado.calc.totalEventos,
+      evento: estado.evento,
+      corDe,
+      filtros,
+    };
     if (estado.visao === 'pessoas') {
-      let resumo = `${plural(r.pessoas, 'pessoa', 'pessoas')} no mapa.`;
+      let resumo = `${plural(r.pessoas, 'pessoa', 'pessoas')} no mapa${estado.grade ? ` com grade ${estado.grade}` : ''}.`;
       if (r.pessoas > 1) resumo += r.pessoas_recorrentes ? ` ${fmtN(r.pessoas_recorrentes)} ${r.pessoas_recorrentes === 1 ? 'delas esteve' : 'delas estiveram'} em mais de um evento.` : ' Cada uma esteve em um evento até agora.';
-      V.desenhaPessoas($('#grade-pessoas'), pessoasVisiveis(), {
-        totalEventos, evento: estado.evento, corDoSetor, resumo,
-        eventosDe: (chave) => estado.calc.eventosPorPessoa.get(chave) || [],
-        aoEscolher: abrePessoa,
-        aoLimparEvento,
-      });
+      V.desenhaPessoas($('#grade-pessoas'), pessoasVisiveis(), { ...comum, resumo, eventosDe: (k) => estado.calc.eventosPorPessoa.get(k) || [], aoEscolher: abrePessoa });
     } else {
-      V.desenhaEmpresas($('#grade-empresas'), empresasVisiveis(), {
-        totalEventos, evento: estado.evento, corDoSetor,
-        eventosDe: (empresa) => estado.calc.eventosPorEmpresa.get(empresa) || [],
-        aoEscolher: abreEmpresa,
-        aoLimparEvento,
-      });
+      V.desenhaEmpresas($('#grade-empresas'), empresasVisiveis(), { ...comum, eventosDe: (e) => estado.calc.eventosPorEmpresa.get(e) || [], aoEscolher: abreEmpresa });
     }
   }
 
@@ -468,31 +558,33 @@
 
   function desenhaGerenciar() {
     if (!estado.calc) calcula();
-    const lotes = estado.calc.lotes;
-    const lista = $('#lista-lotes');
-    if (!lotes.length) lista.replaceChildren(el('li', {}, el('span', { class: 'nota', text: 'Nenhuma lista enviada ainda.' })));
+    const listas = estado.calc.listas;
+    const caixa = $('#lista-lotes');
+    if (!listas.length) caixa.replaceChildren(el('li', {}, el('span', { class: 'nota', text: 'Nenhuma lista enviada ainda.' })));
     else {
-      lista.replaceChildren(...lotes.map((l) => {
-        const nome = quemEnviou(l);
-        const quem = nome ? `por ${nome}` : '';
-        const quando = fmtQuando(l.criado_em);
-        const botao = el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir', 'data-lote': l.lote, 'aria-label': `Excluir a lista ${l.arquivo || ''}` });
-        return el('li', {},
+      caixa.replaceChildren(...listas.map((ls) => el('li', { class: 'lista-bloco' },
+        el('div', { class: 'lista-topo' },
           el('span', { class: 'lote-texto' },
-            el('b', { text: l.arquivo || 'Lista sem nome' }, ehMinha(l) ? el('span', { class: 'lote-voce', text: 'sua' }) : null),
-            el('span', { text: `${l.eventos.join(', ')}: ${plural(l.linhas, 'pessoa', 'pessoas')}` }),
-            (quem || quando) ? el('span', { text: [quem, quando].filter(Boolean).join(', ') }) : null),
-          botao);
-      }));
+            el('b', { text: ls.lista }),
+            el('span', { text: `${plural(ls.linhas, 'interação', 'interações')} de ${plural(ls.eventos.length, 'evento', 'eventos')}` })),
+          el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir a lista', 'data-lista': ls.lista, 'aria-label': `Excluir a lista ${ls.lista} inteira` })),
+        el('ul', { class: 'envios' }, ...ls.envios.map((e) => {
+          const nome = quemEnviou(e);
+          const texto = [fmtQuando(e.criado_em), nome ? `por ${nome}` : '', e.arquivo].filter(Boolean).join(', ');
+          return el('li', {},
+            el('span', { class: 'lote-texto' },
+              el('span', {}, el('span', { text: `${texto}: ${plural(e.linhas, 'interação', 'interações')}` }), ehMinha(e) ? el('span', { class: 'lote-voce', text: 'seu envio' }) : null)),
+            el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir envio', 'data-lote': e.lote, 'aria-label': `Excluir este envio de ${ls.lista}` }));
+        })))));
     }
-    const nomes = estado.calc.empresas.map((e) => e.empresa).sort(porNome);
+    const nomes = estado.calc.empresasTodas.map((e) => e.empresa).sort(porNome);
     const opcoes = nomes.map((n) => [n, n]);
     preencheSelect($('#juntar-origem'), [['', 'Escolha…'], ...opcoes], $('#juntar-origem').value);
     preencheSelect($('#juntar-destino'), [['', 'Escolha…'], ...opcoes], $('#juntar-destino').value);
     preencheSelect($('#setor-empresa'), [['', 'Escolha…'], ...opcoes], $('#setor-empresa').value);
-    const setores = [...new Set([...R.SETORES, R.SEM_SETOR, ...estado.calc.resumo.map((r) => r.setor).filter((s) => s !== 'Todos')])];
+    const setores = [...new Set([...R.SETORES, R.SEM_SETOR, ...estado.calc.empresasTodas.map((e) => e.setor)])];
     const atual = $('#setor-empresa').value ? setorDaEmpresa($('#setor-empresa').value) : '';
-    preencheSelect($('#setor-novo'), [['', 'Escolha…'], ...setores.map((s) => [s, s])], $('#setor-novo').dataset.tocado ? $('#setor-novo').value : atual);
+    preencheSelect($('#setor-novo'), [['', 'Escolha…'], ...setores.map((x) => [x, x])], $('#setor-novo').dataset.tocado ? $('#setor-novo').value : atual);
     $('#botao-baixar').disabled = !estado.linhas.length;
   }
 
@@ -509,19 +601,19 @@
     $('#perfil-email').textContent = `Você entrou como ${estado.usuario.email}`;
     const campo = $('#perfil-campo-nome');
     if (document.activeElement !== campo) campo.value = estado.nome;
-    const minhas = estado.calc.lotes.filter(ehMinha);
-    const pessoas = minhas.reduce((t, l) => t + l.linhas, 0);
-    const eventos = new Set(minhas.flatMap((l) => l.eventos)).size;
+    const meus = estado.calc.lotes.filter(ehMinha);
+    const interacoes = meus.reduce((t, l) => t + l.linhas, 0);
+    const eventos = new Set(meus.flatMap((l) => l.eventos)).size;
     const resumo = $('#perfil-resumo');
     resumo.replaceChildren();
-    if (!minhas.length) resumo.append('Você ainda não subiu nenhuma lista. Quando subir, ela aparece aqui.');
-    else resumo.append('Você subiu ', el('b', { text: plural(minhas.length, 'lista', 'listas') }), ', com ', el('b', { text: plural(pessoas, 'pessoa', 'pessoas') }), `, de ${plural(eventos, 'evento', 'eventos')}.`);
-    $('#perfil-lotes').replaceChildren(...minhas.map((l) => el('li', {},
+    if (!meus.length) resumo.append('Você ainda não subiu nenhuma lista. Quando subir, ela aparece aqui.');
+    else resumo.append('Você fez ', el('b', { text: plural(meus.length, 'envio', 'envios') }), ', com ', el('b', { text: plural(interacoes, 'interação', 'interações') }), `, de ${plural(eventos, 'evento', 'eventos')}.`);
+    $('#perfil-lotes').replaceChildren(...meus.map((l) => el('li', {},
       el('span', { class: 'lote-texto' },
-        el('b', { text: l.arquivo || 'Lista sem nome' }),
-        el('span', { text: `${l.eventos.join(', ')}: ${plural(l.linhas, 'pessoa', 'pessoas')}` }),
+        el('b', { text: l.lista || l.arquivo || 'Lista sem nome' }),
+        el('span', { text: `${l.arquivo ? `${l.arquivo}: ` : ''}${plural(l.linhas, 'interação', 'interações')}` }),
         el('span', { text: fmtQuando(l.criado_em) })),
-      el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir', 'data-lote': l.lote, 'aria-label': `Excluir a lista ${l.arquivo || ''}` }))));
+      el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir', 'data-lote': l.lote, 'aria-label': `Excluir o envio ${l.arquivo || ''}` }))));
   }
 
   async function salvarNome() {
@@ -550,10 +642,32 @@
   async function excluirLote(lote) {
     const info = estado.calc.lotes.find((l) => l.lote === lote);
     if (!info) return;
-    if (!window.confirm(`Excluir a lista “${info.arquivo || 'sem nome'}” (${plural(info.linhas, 'pessoa', 'pessoas')})? Ela some para todo mundo.`)) return;
+    if (!window.confirm(`Excluir este envio da lista “${info.lista}” (${plural(info.linhas, 'interação', 'interações')})? Ele some para todo mundo.`)) return;
     const { error } = await sb.from(TABELA).delete().eq('lote', lote);
     if (error) { avisa(`Não deu para excluir. ${traduzErro(error)}`, 'erro'); return; }
-    avisa('Lista excluída.');
+    avisa('Envio excluído.');
+    await recarregar();
+    desenhaGerenciar();
+    desenhaPerfil();
+  }
+
+  async function apagaLotes(lotes) {
+    for (let i = 0; i < lotes.length; i += 50) {
+      const { error } = await sb.from(TABELA).delete().in('lote', lotes.slice(i, i + 50));
+      if (error) throw error;
+    }
+  }
+
+  async function excluirLista(nome) {
+    const info = estado.calc.listas.find((l) => l.lista === nome);
+    if (!info) return;
+    if (!window.confirm(`Excluir a lista “${nome}” inteira (${plural(info.linhas, 'interação', 'interações')})? Ela some para todo mundo.`)) return;
+    try {
+      await apagaLotes(info.envios.map((e) => e.lote));
+      avisa('Lista excluída.');
+    } catch (e) {
+      avisa(`Não deu para excluir. ${traduzErro(e)}`, 'erro');
+    }
     await recarregar();
     desenhaGerenciar();
     desenhaPerfil();
@@ -616,14 +730,15 @@
 
   async function baixarDados() {
     if (!window.XLSX) await esperaXLSX();
-    const cab = ['Evento', 'Data do evento', 'Empresa', 'Setor', 'Nome', 'Cargo', 'Tipo de interação', 'Observações', 'Arquivo de origem', 'Enviado por'];
+    const cab = ['Evento', 'Data do evento', 'Empresa', 'MU', 'Setor', 'Nome', 'Cargo', 'Grade', 'Tipo de interação', 'Observações', 'Lista', 'Arquivo de origem', 'Enviado por'];
     const linhas = [...estado.linhas]
       .sort((a, b) => String(a.data_evento).localeCompare(String(b.data_evento)) || porNome(a.evento, b.evento) || porNome(a.empresa, b.empresa))
-      .map((l) => [l.evento, fmtData(l.data_evento), l.empresa, l.setor, l.nome || '', l.cargo || '', l.interacao || '', l.observacoes || '', l.arquivo || '', l.enviado_por || '']);
+      .map((l) => [l.evento, R.semDia(l.data_evento) ? R.anoDe(l.data_evento) : fmtData(l.data_evento), l.empresa, l.mu || '', l.setor, l.nome || '', l.cargo || '', l.grade || '',
+        l.interacao || '', l.observacoes || '', R.nomeDaLista(l), l.arquivo || '', quemEnviou(l)]);
     const hoje = new Date().toISOString().slice(0, 10);
     if (window.XLSX) {
       const ws = window.XLSX.utils.aoa_to_sheet([cab, ...linhas]);
-      ws['!cols'] = [28, 14, 26, 14, 24, 28, 22, 32, 28, 30].map((wch) => ({ wch }));
+      ws['!cols'] = [28, 14, 26, 10, 14, 24, 28, 14, 22, 32, 28, 28, 24].map((wch) => ({ wch }));
       const wb = window.XLSX.utils.book_new();
       window.XLSX.utils.book_append_sheet(wb, ws, 'Lista');
       window.XLSX.writeFile(wb, `cruzamentos-${hoje}.xlsx`);
@@ -641,15 +756,44 @@
 
   /* ---------- Subir lista ---------- */
 
-  const envio = { nomeArquivo: '', cabecalho: [], tabela: [], mapa: {}, previa: null };
+  const envio = { nomeArquivo: '', cabecalho: [], tabela: [], mapa: {}, previa: null, config: null };
+  const nomeBase = (arquivo) => R.limpa(String(arquivo || '').replace(/\.[a-z0-9]{2,5}$/i, ''));
+  const marcado = (nome) => { const r = document.querySelector(`input[name="${nome}"]:checked`); return r ? r.value : ''; };
+  const marca = (nome, valor) => $$(`input[name="${nome}"]`).forEach((r) => { r.checked = r.value === valor; });
+  const ROTULO_CURTO = { evento: 'Evento', data: 'Data', empresa: 'Empresa', mu: 'MU', setor: 'Setor', nome: 'Nome', sobrenome: 'Sobrenome', cargo: 'Cargo',
+    grade: 'Grade', email: 'E-mail', interacao: 'Tipo de interação', observacoes: 'Observações' };
+
+  // Lista nova ou atualização de uma lista que já subiu (somando o que é novo ou trocando a versão inteira).
+  function configEnvio() {
+    const tipo = marcado('tipo-envio') === 'atualizar' && $('#lista-existente').value ? 'atualizar' : 'nova';
+    const lista = tipo === 'atualizar' ? $('#lista-existente').value : (R.limpa($('#nome-lista').value) || nomeBase(envio.nomeArquivo) || 'Lista sem nome');
+    const modo = tipo === 'atualizar' && marcado('modo-atualizar') === 'trocar' ? 'trocar' : 'somar';
+    return { tipo, lista, modo };
+  }
+
+  function mostraTipo() {
+    const tipo = marcado('tipo-envio');
+    $('#campo-nome-lista').hidden = tipo === 'atualizar';
+    $('#campos-atualizar').hidden = tipo !== 'atualizar';
+  }
 
   function abreSubir() {
-    Object.assign(envio, { nomeArquivo: '', cabecalho: [], tabela: [], mapa: {}, previa: null });
+    if (!estado.calc) calcula();
+    Object.assign(envio, { nomeArquivo: '', cabecalho: [], tabela: [], mapa: {}, previa: null, config: null });
     $('#arquivo').value = '';
     $('#envio-resultado').hidden = true;
     $('#envio-falta-evento').hidden = true;
     $('#evento-padrao').value = '';
     $('#data-padrao').value = '';
+    $('#nome-lista').value = '';
+    const ano = new Date().getFullYear();
+    preencheSelect($('#ano-padrao'), [ano - 2, ano - 1, ano, ano + 1].map((a) => [String(a), String(a)]), String(ano));
+    const listas = estado.calc.listas;
+    preencheSelect($('#lista-existente'), listas.length ? listas.map((l) => [l.lista, `${l.lista} (${plural(l.linhas, 'interação', 'interações')})`]) : [['', 'Ainda não há listas no mapa']], '');
+    $$('input[name="tipo-envio"]').forEach((r) => { if (r.value === 'atualizar') r.disabled = !listas.length; });
+    marca('tipo-envio', 'nova');
+    marca('modo-atualizar', 'somar');
+    mostraTipo();
     $('#envio-erro').hidden = true;
     $('.zona-titulo').textContent = 'Clique aqui e escolha a planilha do evento';
     const botao = $('#botao-enviar');
@@ -699,6 +843,12 @@
     envio.cabecalho = (tabela[i] || []).map((c) => R.limpa(c));
     envio.tabela = tabela.slice(i + 1);
     envio.mapa = R.mapeiaColunas(envio.cabecalho);
+    // Se já existe uma lista com o mesmo nome do arquivo, sugere que é uma atualização dela.
+    const base = nomeBase(envio.nomeArquivo);
+    $('#nome-lista').value = base;
+    const mesma = estado.calc.listas.find((l) => R.chave(l.lista) === R.chave(base));
+    if (mesma) { marca('tipo-envio', 'atualizar'); $('#lista-existente').value = mesma.lista; }
+    mostraTipo();
     $('.zona-titulo').textContent = 'Trocar de planilha';
     $('#envio-arquivo').textContent = `Planilha escolhida: ${envio.nomeArquivo}`;
     $('#envio-resultado').hidden = false;
@@ -727,47 +877,85 @@
 
   function atualizaPrevia() {
     if (!envio.tabela.length) return;
+    const config = configEnvio();
+    // Ao trocar uma lista inteira, a versão anterior dela não conta como "já está no mapa".
+    const existentes = config.tipo === 'atualizar' && config.modo === 'trocar' ? estado.linhas.filter((l) => R.nomeDaLista(l) !== config.lista) : estado.linhas;
+    envio.config = config;
     envio.previa = R.preparaLinhas(envio.tabela, envio.mapa, {
-      existentes: estado.linhas,
+      existentes,
       apelidos: estado.apelidos,
       eventoPadrao: $('#evento-padrao').value,
       dataPadrao: $('#data-padrao').value,
+      anoPadrao: $('#ano-padrao').value,
       eventosExtras: EVENTOS_SUGERIDOS.map(([evento, data]) => ({ evento, data })),
+      lista: config.lista,
     });
     desenhaResumoEnvio();
   }
 
+  const contagemTexto = (valores, limite = 6) => {
+    const m = new Map();
+    for (const v of valores) if (v) m.set(v, (m.get(v) || 0) + 1);
+    const ordem = [...m.entries()].sort((a, b) => b[1] - a[1] || porNome(a[0], b[0]));
+    const texto = ordem.slice(0, limite).map(([v, n]) => `${v} ${fmtN(n)}`).join(', ');
+    return ordem.length > limite ? `${texto} e mais ${ordem.length - limite}` : texto;
+  };
+
   function desenhaResumoEnvio() {
     const p = envio.previa;
+    const config = envio.config;
     const ig = p.ignoradas;
     const n = p.linhas.length;
-    const faltaEvento = ig.semEvento > 0 || ig.semData > 0 || envio.mapa.evento === undefined || envio.mapa.data === undefined;
-    $('#envio-falta-evento').hidden = !faltaEvento;
+    const semColunaEvento = envio.mapa.evento === undefined;
+    const semColunaData = envio.mapa.data === undefined;
+    $('#envio-falta-evento').hidden = !(semColunaEvento || semColunaData || ig.semEvento || ig.semData);
+    $('#campo-evento-padrao').hidden = !(semColunaEvento || ig.semEvento);
+    $('#envio-pergunta-texto').textContent = (semColunaEvento || ig.semEvento)
+      ? 'De qual evento é esta lista? A planilha não diz.'
+      : 'A planilha não tem a data de todos os eventos. Sem data, a interação entra no ano escolhido; se souber o dia, escolha a data.';
+
     const blocos = [];
     if (n) {
+      const pessoas = new Set(p.linhas.filter((l) => l.nome).map((l) => `${l.empresa}|${R.chave(l.nome)}`)).size;
       const empresas = new Set(p.linhas.map((l) => l.empresa)).size;
-      blocos.push(el('p', { class: 'resumo-grande' }, V.icone('participou'), el('span', { text: `${plural(n, 'pessoa', 'pessoas')} de ${plural(empresas, 'empresa', 'empresas')} vão entrar no mapa` })));
-      blocos.push(el('p', { class: 'nota', text: `Evento: ${p.eventos.map((e) => `${e.evento} (${fmtData(e.data)})`).join(', ')}.` }));
-      if (p.empresasNovas.length) blocos.push(el('p', { class: 'nota', text: `${plural(p.empresasNovas.length, 'empresa aparece', 'empresas aparecem')} pela primeira vez no mapa.` }));
+      blocos.push(el('p', { class: 'resumo-grande' }, V.icone('participou'),
+        el('span', { text: `${plural(n, 'interação', 'interações')} de ${plural(pessoas, 'pessoa', 'pessoas')} e ${plural(empresas, 'empresa', 'empresas')} vão entrar no mapa` })));
+      const anteriores = estado.linhas.filter((l) => R.nomeDaLista(l) === config.lista).length;
+      let textoLista = `Lista nova: ${config.lista}.`;
+      if (config.tipo === 'atualizar') {
+        textoLista = config.modo === 'trocar'
+          ? `Lista ${config.lista}: a versão anterior (${plural(anteriores, 'interação', 'interações')}) sai do mapa e entra esta.`
+          : `Lista ${config.lista}: entram só as interações que ainda não estavam no mapa.`;
+      }
+      blocos.push(el('p', { class: 'nota nota-forte', text: textoLista }));
+      blocos.push(el('p', { class: 'nota', text: `Eventos: ${p.eventos.map((e) => `${e.evento} (${fmtData(e.data)})`).join(', ')}.` }));
+      blocos.push(el('p', { class: 'nota', text: `Tipos de interação: ${contagemTexto(p.linhas.map((l) => l.interacao))}.` }));
+      if (p.linhas.some((l) => l.mu)) blocos.push(el('p', { class: 'nota', text: `MU: ${contagemTexto(p.linhas.map((l) => l.mu))}.` }));
+      blocos.push(el('p', { class: 'nota', text: `Grade: ${contagemTexto(p.linhas.map((l) => l.grade))}.` }));
+      for (const x of p.primeirasDoAno) {
+        blocos.push(el('p', { class: 'nota', text: `Para ${plural(x.empresas, 'empresa', 'empresas')}, esta é a primeira interação de ${x.ano} no mapa.` }));
+      }
     } else {
       let motivo = 'Nada para colocar no mapa ainda.';
       if (envio.mapa.empresa === undefined && envio.mapa.email === undefined) motivo = 'Não achamos a coluna com o nome da empresa. Abra “Ajustar colunas” e escolha qual é.';
       else if (ig.semEvento || ig.semData) motivo = 'Falta dizer de qual evento é esta lista (logo acima).';
-      else if (ig.jaExistiam) motivo = 'Todas as pessoas desta planilha já estão no mapa.';
+      else if (ig.jaExistiam) motivo = 'Nada de novo: todas as interações desta planilha já estão no mapa.';
       blocos.push(el('p', { class: 'resumo-grande nada' }, V.icone('participou'), el('span', { text: motivo })));
     }
+    const lidas = R.CAMPOS.filter((c) => envio.mapa[c.id] !== undefined).map((c) => ROTULO_CURTO[c.id] || c.rotulo);
+    blocos.push(el('p', { class: 'nota', text: `Colunas lidas da planilha: ${lidas.join(', ') || 'nenhuma'}.` }));
     const fora = [
-      [ig.jaExistiam, 'já estava no mapa', 'já estavam no mapa'],
-      [ig.repetidas, 'repetida na planilha', 'repetidas na planilha'],
-      [ig.capgemini, 'da própria Capgemini', 'da própria Capgemini'],
-      [ig.semEmpresa, 'sem empresa', 'sem empresa'],
+      [ig.jaExistiam, 'interação já estava no mapa', 'interações já estavam no mapa'],
+      [ig.repetidas, 'linha exatamente igual a outra', 'linhas exatamente iguais a outras'],
+      [ig.capgemini, 'pessoa da própria Capgemini', 'pessoas da própria Capgemini'],
+      [ig.semEmpresa, 'linha sem empresa', 'linhas sem empresa'],
       [ig.exemplo, 'linha de exemplo do modelo', 'linhas de exemplo do modelo'],
     ].filter(([q]) => q > 0).map(([q, um, varios]) => plural(q, um, varios));
-    if (fora.length && n) blocos.push(el('p', { class: 'nota', text: `Ficam de fora: ${fora.join('; ')}.` }));
+    if (fora.length) blocos.push(el('p', { class: 'nota', text: `Ficam de fora: ${fora.join('; ')}.` }));
     $('#envio-resumo').replaceChildren(...blocos);
     $('#envio-amostra').replaceChildren(...p.linhas.slice(0, 5).map((l) => el('li', {},
       el('b', { text: l.empresa }),
-      el('span', { text: [l.nome, l.cargo].filter(Boolean).join(', ') || 'Pessoa não informada' }))));
+      el('span', { text: [l.nome, l.cargo, l.interacao].filter(Boolean).join(', ') || 'Pessoa não informada' }))));
     const botao = $('#botao-enviar');
     botao.disabled = n === 0;
     botao.textContent = n ? `Colocar no mapa (${fmtN(n)})` : 'Colocar no mapa';
@@ -776,6 +964,7 @@
   async function enviar() {
     atualizaPrevia();
     const p = envio.previa;
+    const config = envio.config;
     if (!p || !p.linhas.length) return;
     const botao = $('#botao-enviar');
     const erro = $('#envio-erro');
@@ -783,7 +972,9 @@
     botao.disabled = true;
     botao.textContent = 'Enviando…';
     const lote = novoId();
-    const registros = p.linhas.map((l) => ({ ...l, lote, arquivo: envio.nomeArquivo, enviado_por: estado.usuario.email || '', enviado_por_nome: estado.nome }));
+    const anteriores = config.tipo === 'atualizar' && config.modo === 'trocar'
+      ? ((estado.calc.listas.find((l) => l.lista === config.lista) || { envios: [] }).envios.map((e) => e.lote)) : [];
+    const registros = p.linhas.map((l) => ({ ...l, lista: config.lista, lote, arquivo: envio.nomeArquivo, enviado_por: estado.usuario.email || '', enviado_por_nome: estado.nome }));
     let enviados = 0;
     try {
       for (let i = 0; i < registros.length; i += 500) {
@@ -792,19 +983,27 @@
         if (error) throw error;
         enviados += parte.length;
       }
-      for (const s of p.setoresParaAtualizar) {
-        await sb.from(TABELA).update({ setor: s.setor }).eq('empresa', s.empresa).eq('setor', R.SEM_SETOR);
+      for (const x of p.setoresParaAtualizar) {
+        await sb.from(TABELA).update({ setor: x.setor }).eq('empresa', x.empresa).eq('setor', R.SEM_SETOR);
       }
+      // Na troca, a versão anterior só sai depois que a nova entrou inteira.
+      if (anteriores.length) await apagaLotes(anteriores);
       fechaJanela($('#dlg-subir'));
       estado.evento = p.eventos.length === 1 ? p.eventos[0].evento : '';
       estado.empresa = '';
       estado.pessoa = '';
-      avisa(`Pronto: ${plural(enviados, 'pessoa entrou', 'pessoas entraram')} no mapa e a lista ficou salva no seu perfil. Quem está com o site aberto já está vendo.`);
+      let texto = `Pronto: ${plural(enviados, 'interação entrou', 'interações entraram')} no mapa e o envio ficou salvo no seu perfil.`;
+      if (config.tipo === 'atualizar') {
+        texto = config.modo === 'trocar'
+          ? `Pronto: a lista ${config.lista} foi trocada pela versão nova (${plural(enviados, 'interação', 'interações')}).`
+          : `Pronto: ${plural(enviados, 'interação nova entrou', 'interações novas entraram')} na lista ${config.lista}.`;
+      }
+      avisa(`${texto} Quem está com o site aberto já está vendo.`);
       await recarregar();
       rolaPara('#empresas');
     } catch (e) {
       erro.textContent = enviados
-        ? `Entraram ${fmtN(enviados)} pessoas e o resto falhou: ${traduzErro(e)} Para tentar de novo, exclua esta lista em “Gerenciar listas” e suba outra vez.`
+        ? `Entraram ${fmtN(enviados)} interações e o resto falhou: ${traduzErro(e)} Para tentar de novo, exclua este envio em “Gerenciar listas” e suba outra vez.`
         : `Não deu para enviar. ${traduzErro(e)}`;
       erro.hidden = false;
       if (enviados) recarregar();
@@ -847,9 +1046,15 @@
       atualizaPrevia();
     });
     $('#data-padrao').addEventListener('change', atualizaPrevia);
+    $('#ano-padrao').addEventListener('change', atualizaPrevia);
+    $$('input[name="tipo-envio"], input[name="modo-atualizar"]').forEach((r) => r.addEventListener('change', () => { mostraTipo(); atualizaPrevia(); }));
+    $('#lista-existente').addEventListener('change', atualizaPrevia);
+    $('#nome-lista').addEventListener('input', atualizaPrevia);
     $('#botao-enviar').addEventListener('click', enviar);
 
     $('#lista-lotes').addEventListener('click', (e) => {
+      const lista = e.target.closest('button[data-lista]');
+      if (lista) { excluirLista(lista.dataset.lista); return; }
       const b = e.target.closest('button[data-lote]');
       if (b) excluirLote(b.dataset.lote);
     });

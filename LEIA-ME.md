@@ -67,7 +67,11 @@ Para colocar no ar são quatro partes. Faça uma de cada vez, na ordem.
 - **Se o site mostrar “Falta ligar o site ao Supabase”:** o config.js no GitHub ainda não tem a Project URL e a chave publishable (Parte 2, passo 7). Sem isso, o site não pede senha e não salva nada.
 - **Se o site disser que os arquivos estão misturados:** suba de novo todos os arquivos do zip no GitHub, incluindo o index.html, e aperte **Ctrl + F5** na página do site.
 - **Meu perfil:** clicando no seu nome, no topo, você vê as listas que subiu e pode trocar o nome que aparece para o time. Cada lista fica gravada com o nome de quem subiu.
-- **Subir uma lista:** botão **Subir lista de um evento**. O site aceita o modelo de planilha e também listas do jeito que vêm dos eventos (Excel ou CSV). Antes de enviar, ele mostra quantas pessoas vão entrar e o que fica de fora.
+- **Subir uma lista:** botão **Subir lista de um evento**. O site aceita o modelo de planilha e também listas do jeito que vêm dos eventos (Excel ou CSV). Antes de enviar, ele mostra quantas interações vão entrar, quais colunas leu e o que fica de fora.
+- **Cada interação conta:** se a pessoa foi ao almoço e ao coquetel do mesmo evento, são duas interações. Só fica de fora a linha exatamente igual a outra.
+- **Compilado do ano:** suba o mesmo arquivo e escolha “Uma atualização de uma lista que já está no mapa”. “Somar só o que é novo” acrescenta o que faltava; “Trocar a lista inteira” substitui a versão anterior (use quando corrigiu nomes ou tirou linhas). Em **Gerenciar listas** dá para ver cada envio, quando e por quem.
+- **MU e grade:** se a planilha tiver as colunas MU e Grade, o site filtra por MU e mostra quantas pessoas há em cada grade. Sem a coluna Grade, ele descobre pelo cargo.
+- **Anos:** sem a data, a interação entra no ano escolhido. Quando houver mais de um ano, aparece o filtro de ano, e cada empresa ou pessoa mostra se também interagiu em outro ano.
 - **Errou a lista?** Clique em **Gerenciar listas** e em **Excluir** na lista errada.
 - **Mesma empresa com dois nomes?** Em **Gerenciar listas**, use **A mesma empresa apareceu com dois nomes?**. As próximas listas já entram com o nome certo.
 - **Atualizar o site depois:** no GitHub, clique em **Add file** → **Upload files**, arraste todos os arquivos novos e clique em **Commit changes**. Se o seu config.js no GitHub já tem os dados do Supabase, não suba o config.js do zip (ele está em branco). O Render atualiza sozinho em 1 ou 2 minutos; depois aperte **Ctrl + F5** no site.

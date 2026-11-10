@@ -10,10 +10,12 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '5';
+  const VERSAO = '6';
   const SEM_SETOR = 'Sem setor';
   const SETORES = ['Bancos', 'Seguros', 'Varejo', 'Telecom', 'Saúde', 'Energia', 'Indústria', 'Governo', 'Tecnologia', 'Serviços', 'Outro'];
-  const INTERACOES = ['Visita ao estande', 'Reunião agendada', 'Palestra ou painel', 'Sala VIP', 'Convidado'];
+  const INTERACOES = ['Visita ao estande', 'Reunião agendada', 'Palestra ou painel', 'Sala VIP', 'Almoço', 'Jantar', 'Café da manhã', 'Coquetel', 'Happy hour', 'Workshop', 'Convidado'];
+  const SEM_MU = 'Sem MU';
+  const SEM_GRADE = 'Não informado';
   const INTERACAO_PADRAO = 'Participou do evento';
 
   /* ---------- Texto ---------- */
@@ -137,9 +139,15 @@
   const PISTAS_INTERACAO = [
     ['Sala VIP', ['vip', 'lounge']],
     ['Reunião agendada', ['reuniao', 'reunioes', 'meeting', 'meetings', 'agenda', 'agendada', 'agendado']],
-    ['Palestra ou painel', ['palestra', 'painel', 'talk', 'keynote', 'sessao', 'session', 'workshop', 'apresentacao', 'palestrante', 'painelista', 'speaker']],
-    ['Visita ao estande', ['estande', 'stand', 'booth', 'visita', 'visitou', 'cracha', 'badge', 'scan', 'lead']],
-    ['Convidado', ['convidado', 'convidada', 'convidados', 'convite', 'guest', 'almoco', 'jantar', 'cafe', 'encontro', 'coquetel', 'happy hour']],
+    ['Almoço', ['almoco', 'almocos', 'lunch']],
+    ['Jantar', ['jantar', 'jantares', 'dinner']],
+    ['Café da manhã', ['cafe', 'breakfast']],
+    ['Happy hour', ['happy hour', 'happyhour']],
+    ['Coquetel', ['coquetel', 'coqueteis', 'cocktail', 'drinks']],
+    ['Workshop', ['workshop', 'oficina', 'hands on']],
+    ['Palestra ou painel', ['palestra', 'painel', 'talk', 'keynote', 'sessao', 'session', 'apresentacao', 'palestrante', 'painelista', 'speaker']],
+    ['Visita ao estande', ['estande', 'stand', 'booth', 'visita', 'visitou', 'cracha', 'badge', 'scan']],
+    ['Convidado', ['convidado', 'convidada', 'convidados', 'convite', 'guest']],
   ];
   const normalizaInteracao = (valor) => {
     const k = chave(valor);
@@ -148,6 +156,41 @@
     if (k === chave(INTERACAO_PADRAO)) return INTERACAO_PADRAO;
     const t = limpa(valor);
     return t.charAt(0).toUpperCase() + t.slice(1);
+  };
+
+  /* ---------- Grade (nível do cargo) e MU ---------- */
+
+  const ORDEM_GRADES = ['C-Level', 'VP', 'Diretor', 'Supex', 'Superintendente', 'Gerente', 'Coordenador', 'Especialista', 'Analista'];
+  const PISTAS_GRADE = [
+    ['C-Level', ['ceo', 'cfo', 'cio', 'cto', 'coo', 'cmo', 'cdo', 'ciso', 'cro', 'chro', 'cpo', 'cso', 'chief', 'presidente', 'president',
+      'fundador', 'fundadora', 'founder', 'cofundador', 'socio', 'socia', 'owner', 'c level', 'clevel']],
+    ['VP', ['vp', 'svp', 'evp', 'avp', 'vice presidente', 'vice president', 'vicepresidente', 'vice presidencia']],
+    ['Supex', ['supex', 'superintendente executivo', 'superintendente executiva', 'superintendencia executiva']],
+    ['Superintendente', ['superintendente', 'superintendencia']],
+    ['Diretor', ['diretor', 'diretora', 'diretores', 'director', 'diretoria', 'head']],
+    ['Gerente', ['gerente', 'gerentes', 'manager', 'gerencia', 'gestor', 'gestora']],
+    ['Coordenador', ['coordenador', 'coordenadora', 'coordinator', 'coordenacao', 'supervisor', 'supervisora', 'lider', 'leader', 'lead']],
+    ['Especialista', ['especialista', 'specialist', 'consultor', 'consultora', 'consultant', 'arquiteto', 'arquiteta', 'architect',
+      'engenheiro', 'engenheira', 'engineer', 'cientista', 'scientist', 'expert']],
+    ['Analista', ['analista', 'analyst', 'assistente', 'assistant', 'estagiario', 'estagiaria', 'trainee', 'auxiliar', 'intern']],
+  ];
+  const inferirGrade = (texto) => {
+    const k = chave(texto);
+    if (!k) return '';
+    for (const [grade, termos] of PISTAS_GRADE) if (termos.some((t) => temTermo(k, t))) return grade;
+    return '';
+  };
+  // Grade da planilha (se tiver a coluna) ou um palpite pelo cargo.
+  const normalizaGrade = (valor, cargo) => {
+    const informada = limpa(valor);
+    if (informada) return inferirGrade(informada) || capitaliza(informada);
+    return inferirGrade(cargo) || SEM_GRADE;
+  };
+  const posicaoGrade = (g) => { const i = ORDEM_GRADES.indexOf(g); return i < 0 ? (g === SEM_GRADE ? 999 : 500) : i; };
+  const normalizaMU = (valor) => {
+    const t = limpa(valor);
+    if (!t) return '';
+    return t.replace(/\s+/g, '').length <= 6 ? t.toUpperCase() : capitaliza(t);
   };
 
   /* ---------- Datas ---------- */
@@ -170,6 +213,7 @@
     if (typeof valor === 'number') valor = String(valor);
     const t = limpa(valor);
     if (!t) return '';
+    if (/^\d{4}$/.test(t)) return dataValida(+t, 1, 1);
     if (/^\d{5}(\.\d+)?$/.test(t)) {
       const serie = Math.floor(Number(t));
       if (serie > 36000 && serie < 75000) {
@@ -194,22 +238,27 @@
     return '';
   };
 
+  const anoDe = (data) => String(data || '').slice(0, 4);
+  const semDia = (data) => /-01-01$/.test(String(data || '').slice(0, 10));
+
   /* ---------- Colunas da planilha ---------- */
 
   const CAMPOS = [
     { id: 'evento', rotulo: 'Evento', sinonimos: ['evento', 'nomedoevento', 'nomeevento', 'event', 'eventname', 'eventoparticipado'] },
-    { id: 'data', rotulo: 'Data do evento', sinonimos: ['datadoevento', 'dataevento', 'data', 'date', 'eventdate', 'dia', 'datadeinicio', 'datainicio'] },
+    { id: 'data', rotulo: 'Data do evento (ou só o ano)', sinonimos: ['datadoevento', 'dataevento', 'data', 'date', 'eventdate', 'dia', 'datadeinicio', 'datainicio', 'ano', 'year', 'anodoevento'] },
     { id: 'empresa', rotulo: 'Empresa', sinonimos: ['empresa', 'nomedaempresa', 'company', 'companyname', 'companhia', 'organizacao', 'organization',
       'organisation', 'instituicao', 'empresacliente', 'cliente', 'account', 'accountname', 'conta'] },
+    { id: 'mu', rotulo: 'MU', sinonimos: ['mu', 'mus', 'marketunit', 'marketunits', 'unidadedemercado', 'unidade', 'bu', 'businessunit', 'unidadedenegocio', 'unidadedenegocios'] },
     { id: 'setor', rotulo: 'Setor', sinonimos: ['setor', 'setordaempresa', 'segmento', 'industry', 'industria', 'vertical', 'ramo', 'ramodeatividade'] },
     { id: 'nome', rotulo: 'Nome', sinonimos: ['nomecompleto', 'fullname', 'nome', 'name', 'participante', 'convidado', 'convidada', 'attendee',
       'attendeename', 'contato', 'primeironome', 'firstname', 'prenome'] },
     { id: 'sobrenome', rotulo: 'Sobrenome (se vier separado)', sinonimos: ['sobrenome', 'lastname', 'surname', 'ultimonome', 'familyname'] },
     { id: 'cargo', rotulo: 'Cargo', sinonimos: ['cargo', 'jobtitle', 'title', 'funcao', 'position', 'role', 'cargoatual', 'cargofuncao'] },
+    { id: 'grade', rotulo: 'Grade (nível do cargo)', sinonimos: ['grade', 'nivel', 'niveldocargo', 'senioridade', 'nivelhierarquico', 'hierarquia', 'level', 'seniority', 'grau'] },
     { id: 'email', rotulo: 'E-mail (só para achar a empresa)', sinonimos: ['emailcorporativo', 'email', 'emailprofissional', 'emailaddress',
       'enderecodeemail', 'mail', 'ecorreio'] },
-    { id: 'interacao', rotulo: 'Tipo de interação', sinonimos: ['tipodeinteracao', 'interacao', 'tipodecontato', 'tipodeparticipacao', 'touchpoint',
-      'interaction', 'tipo'] },
+    { id: 'interacao', rotulo: 'Tipo de interação (almoço, coquetel…)', sinonimos: ['tipodeinteracao', 'interacao', 'tipodecontato', 'tipodeparticipacao',
+      'touchpoint', 'interaction', 'acao', 'tipodeacao', 'atividade', 'tipodeatividade', 'formato', 'momento', 'ativacao', 'experiencia', 'tipo'] },
     { id: 'observacoes', rotulo: 'Observações', sinonimos: ['observacoes', 'observacao', 'obs', 'notas', 'notes', 'comentarios', 'comentario', 'comments'] },
   ];
 
@@ -281,7 +330,8 @@
 
   /* ---------- Linhas ---------- */
 
-  const chaveLinha = (l) => [chave(l.evento), String(l.data_evento || '').slice(0, 10), chaveEmpresa(l.empresa), chave(l.nome), chave(l.interacao)].join('|');
+  const chaveLinha = (l) => [chave(l.evento), String(l.data_evento || '').slice(0, 10), chaveEmpresa(l.empresa), chave(l.nome), chave(l.interacao), chave(l.observacoes)].join('|');
+  const nomeDaLista = (l) => limpa(l.lista) || limpa(String(l.arquivo || '').replace(/\.[a-z0-9]{2,5}$/i, '')) || 'Lista sem nome';
 
   const ehLinhaExemplo = (empresa, observacoes) => /\(exemplo\)\s*$/i.test(limpa(empresa)) || chave(observacoes).includes('linha de exemplo');
 
@@ -289,26 +339,35 @@
    * Transforma as linhas da planilha em interações prontas para o banco.
    * tabela: linhas de dados (sem o cabeçalho), cada uma um array de células.
    * mapa: { campo: índice da coluna }.
-   * contexto: { existentes, apelidos, eventoPadrao, dataPadrao, eventosExtras }.
+   * contexto: { existentes, apelidos, eventoPadrao, dataPadrao, anoPadrao, eventosExtras, lista }.
+   * Só linhas idênticas (todas as colunas iguais) contam como repetidas. Almoço e coquetel
+   * da mesma pessoa no mesmo evento são duas interações.
    */
   const preparaLinhas = (tabela, mapa, contexto = {}) => {
     const existentes = contexto.existentes || [];
     const apelidos = new Map((contexto.apelidos || []).map((a) => [a.apelido, a.empresa]));
     const eventoPadrao = limpa(contexto.eventoPadrao);
-    const dataPadrao = dataISO(contexto.dataPadrao);
+    const anoPadrao = /^\d{4}$/.test(String(contexto.anoPadrao || '').trim()) ? String(contexto.anoPadrao).trim() : '';
+    const dataPadrao = dataISO(contexto.dataPadrao) || (anoPadrao ? `${anoPadrao}-01-01` : '');
+    const lista = limpa(contexto.lista);
 
     const eventosConhecidos = new Map();
     const empresasConhecidas = new Map();
-    const chavesExistentes = new Set();
+    const contagemExistente = new Map();
+    const anosPorEmpresa = new Map();
     for (const l of existentes) {
       const ke = chave(l.evento);
       if (!eventosConhecidos.has(ke)) eventosConhecidos.set(ke, { evento: l.evento, data: String(l.data_evento || '').slice(0, 10) });
       const kc = chaveEmpresa(l.empresa);
-      const atual = empresasConhecidas.get(kc);
-      if (!atual || (atual.setor === SEM_SETOR && l.setor && l.setor !== SEM_SETOR)) empresasConhecidas.set(kc, { empresa: l.empresa, setor: l.setor || SEM_SETOR });
-      chavesExistentes.add(chaveLinha(l));
+      const atual = empresasConhecidas.get(kc) || { empresa: l.empresa, setor: SEM_SETOR, mu: '' };
+      if (atual.setor === SEM_SETOR && l.setor && l.setor !== SEM_SETOR) atual.setor = l.setor;
+      if (!atual.mu && l.mu) atual.mu = l.mu;
+      empresasConhecidas.set(kc, atual);
+      const k = chaveLinha(l);
+      contagemExistente.set(k, (contagemExistente.get(k) || 0) + 1);
+      if (!anosPorEmpresa.has(kc)) anosPorEmpresa.set(kc, new Set());
+      anosPorEmpresa.get(kc).add(anoDe(l.data_evento));
     }
-
     for (const e of contexto.eventosExtras || []) {
       const ke = chave(e.evento);
       if (ke && !eventosConhecidos.has(ke)) eventosConhecidos.set(ke, { evento: e.evento, data: dataISO(e.data) });
@@ -317,7 +376,7 @@
     const celula = (linha, campo) => (mapa[campo] === undefined ? '' : linha[mapa[campo]]);
     const texto = (linha, campo) => limpa(celula(linha, campo));
 
-    // 1ª passada: domínio de e-mail -> empresa, e setores informados por empresa.
+    // 1ª passada: domínio de e-mail -> empresa.
     const empresaPorDominio = new Map();
     for (const linha of tabela) {
       const d = dominioCorporativo(texto(linha, 'email'));
@@ -339,10 +398,15 @@
     const empresasDoArquivo = new Map();
     const eventosDoArquivo = new Map();
     const setorInformado = new Map();
+    const muInformado = new Map();
+    const assinaturas = new Set();
     const brutas = [];
 
     for (const linha of tabela) {
       if (!linha || linha.every((c) => limpa(c) === '')) { ignoradas.vazias += 1; continue; }
+      const assinatura = linha.map((c) => chave(c)).join('\u0001');
+      if (assinaturas.has(assinatura)) { ignoradas.repetidas += 1; continue; }
+      assinaturas.add(assinatura);
       const obs = texto(linha, 'observacoes');
       let empresaBruta = texto(linha, 'empresa');
       if (ehLinhaExemplo(empresaBruta, obs)) { ignoradas.exemplo += 1; continue; }
@@ -357,60 +421,88 @@
       const ke = chave(eventoBruto);
       const conhecido = eventosConhecidos.get(ke);
       const evento = conhecido ? conhecido.evento : (eventosDoArquivo.get(ke) || limpa(eventoBruto));
-      const data = dataISO(celula(linha, 'data')) || (conhecido && conhecido.data) || dataPadrao;
+      // Se a planilha só tem o ano e o evento já tem a data certa (no mapa ou na lista de eventos), usa a data certa.
+      let data = dataISO(celula(linha, 'data'));
+      if (conhecido && conhecido.data && !semDia(conhecido.data) && (!data || (semDia(data) && anoDe(data) === anoDe(conhecido.data)))) data = conhecido.data;
+      if (!data) data = dataPadrao;
       if (!data) { ignoradas.semData += 1; continue; }
       if (!eventosDoArquivo.has(ke)) eventosDoArquivo.set(ke, evento);
 
-      const setorBruto = normalizaSetor(texto(linha, 'setor'));
       const kc = chaveEmpresa(empresa);
+      const setorBruto = normalizaSetor(texto(linha, 'setor'));
       if (setorBruto && setorBruto !== SEM_SETOR && !setorInformado.has(kc)) setorInformado.set(kc, setorBruto);
+      const mu = normalizaMU(texto(linha, 'mu'));
+      if (mu && !muInformado.has(kc)) muInformado.set(kc, mu);
 
       const nome = capitaliza([texto(linha, 'nome'), texto(linha, 'sobrenome')].filter(Boolean).join(' '));
+      const cargo = capitaliza(texto(linha, 'cargo'));
       brutas.push({
         evento,
         data_evento: data,
         empresa,
+        mu,
         nome: nome || null,
-        cargo: capitaliza(texto(linha, 'cargo')) || null,
+        cargo: cargo || null,
+        grade: normalizaGrade(texto(linha, 'grade'), cargo),
         interacao: normalizaInteracao(texto(linha, 'interacao')),
         observacoes: obs ? obs.slice(0, 500) : null,
+        lista: lista || null,
       });
     }
 
-    // 2ª passada: setor de cada empresa (o informado, o que já existe ou um palpite pelo nome).
+    // 2ª passada: setor e MU de cada empresa (o informado, o que já existe ou um palpite pelo nome).
     const setorFinal = new Map();
     const setoresParaAtualizar = [];
     for (const l of brutas) {
       const kc = chaveEmpresa(l.empresa);
       if (setorFinal.has(kc)) continue;
       const conhecida = empresasConhecidas.get(kc);
-      const informado = setorInformado.get(kc);
       let setor;
       if (conhecida && conhecida.setor && conhecida.setor !== SEM_SETOR) setor = conhecida.setor;
       else {
-        setor = informado || inferirSetor(l.empresa);
+        setor = setorInformado.get(kc) || inferirSetor(l.empresa);
         if (conhecida && setor !== SEM_SETOR) setoresParaAtualizar.push({ empresa: conhecida.empresa, setor });
       }
       setorFinal.set(kc, setor);
     }
 
-    const vistas = new Set();
+    // Na mesma planilha, linhas só com o ano ganham a data cheia do mesmo evento, se outra linha tiver.
+    const dataCheia = new Map();
+    for (const l of brutas) if (!semDia(l.data_evento)) dataCheia.set(`${chave(l.evento)}\u0000${anoDe(l.data_evento)}`, l.data_evento);
+    for (const l of brutas) {
+      const k = `${chave(l.evento)}\u0000${anoDe(l.data_evento)}`;
+      if (semDia(l.data_evento) && dataCheia.has(k)) l.data_evento = dataCheia.get(k);
+    }
+
+    // 3ª passada: o que já está no mapa não entra de novo (conta quantas vezes cada interação já existe).
+    const restantes = new Map(contagemExistente);
     const linhas = [];
     for (const l of brutas) {
-      const pronta = { ...l, setor: setorFinal.get(chaveEmpresa(l.empresa)) || SEM_SETOR };
+      const kc = chaveEmpresa(l.empresa);
+      const conhecida = empresasConhecidas.get(kc);
+      const pronta = { ...l, setor: setorFinal.get(kc) || SEM_SETOR, mu: l.mu || muInformado.get(kc) || (conhecida && conhecida.mu) || null };
       const k = chaveLinha(pronta);
-      if (chavesExistentes.has(k)) { ignoradas.jaExistiam += 1; continue; }
-      if (vistas.has(k)) { ignoradas.repetidas += 1; continue; }
-      vistas.add(k);
+      const n = restantes.get(k) || 0;
+      if (n > 0) { restantes.set(k, n - 1); ignoradas.jaExistiam += 1; continue; }
       linhas.push(pronta);
     }
 
+    // Para quantas empresas esta é a primeira interação do ano no mapa.
+    const primeiras = new Map();
+    for (const l of linhas) {
+      const ano = anoDe(l.data_evento);
+      const anos = anosPorEmpresa.get(chaveEmpresa(l.empresa));
+      if (anos && anos.has(ano)) continue;
+      if (!primeiras.has(ano)) primeiras.set(ano, new Set());
+      primeiras.get(ano).add(l.empresa);
+    }
+    const primeirasDoAno = [...primeiras.entries()].map(([ano, conjunto]) => ({ ano, empresas: conjunto.size })).sort((a, b) => a.ano.localeCompare(b.ano));
     const empresasNovas = [...new Set(linhas.map((l) => l.empresa))].filter((e) => !empresasConhecidas.has(chaveEmpresa(e)));
-    const eventos = [...new Set(linhas.map((l) => `${l.evento}\u0000${l.data_evento}`))].map((s) => {
-      const [evento, data] = s.split('\u0000');
+    const eventos = [...new Set(linhas.map((l) => `${l.evento}\u0000${l.data_evento}`))].map((txt) => {
+      const [evento, data] = txt.split('\u0000');
       return { evento, data, linhas: linhas.filter((l) => l.evento === evento && l.data_evento === data).length };
     });
-    return { linhas, ignoradas, empresasNovas, eventos, setoresParaAtualizar };
+    return { linhas, ignoradas, empresasNovas, primeirasDoAno, eventos, setoresParaAtualizar };
   };
 
   /* ---------- Números do painel ---------- */
@@ -461,36 +553,51 @@
   const porEmpresa = (linhas) => {
     const m = new Map();
     for (const l of linhas) {
-      if (!m.has(l.empresa)) m.set(l.empresa, { empresa: l.empresa, setor: l.setor || SEM_SETOR, eventos: new Set(), pessoas: new Set(), datas: [] });
+      if (!m.has(l.empresa)) m.set(l.empresa, { empresa: l.empresa, setor: l.setor || SEM_SETOR, mu: '', eventos: new Set(), pessoas: new Set(), datas: [], anos: new Set(), interacoes: 0 });
       const e = m.get(l.empresa);
       e.eventos.add(l.evento);
       if (limpa(l.nome)) e.pessoas.add(pessoa(l));
       e.datas.push(dia(l));
+      e.anos.add(anoDe(dia(l)));
+      e.interacoes += 1;
+      if (!e.mu && limpa(l.mu)) e.mu = limpa(l.mu);
     }
     return [...m.values()].map((e) => {
       const datas = e.datas.sort();
-      return { empresa: e.empresa, setor: e.setor, eventos: e.eventos.size, pessoas: e.pessoas.size, primeiro_contato: datas[0], ultimo_contato: datas[datas.length - 1] };
+      return {
+        empresa: e.empresa, setor: e.setor, mu: e.mu, eventos: e.eventos.size, pessoas: e.pessoas.size, interacoes: e.interacoes,
+        anos: [...e.anos].sort(), primeiro_contato: datas[0], ultimo_contato: datas[datas.length - 1],
+      };
     });
   };
 
+  // "Primeira interação do ano": a empresa ainda não tinha aparecido em outro evento do mesmo ano.
   const porEvento = (linhas) => {
     const estreia = new Map();
-    for (const l of linhas) if (!estreia.has(l.empresa) || dia(l) < estreia.get(l.empresa)) estreia.set(l.empresa, dia(l));
+    for (const l of linhas) {
+      const k = `${l.empresa}\u0000${anoDe(dia(l))}`;
+      if (!estreia.has(k) || dia(l) < estreia.get(k)) estreia.set(k, dia(l));
+    }
     const grupos = new Map();
     for (const l of linhas) {
       for (const setor of ['Todos', l.setor || SEM_SETOR]) {
         const k = `${setor}\u0000${l.evento}`;
-        if (!grupos.has(k)) grupos.set(k, { setor, evento: l.evento, data: dia(l), empresas: new Set(), pessoas: new Set() });
+        if (!grupos.has(k)) grupos.set(k, { setor, evento: l.evento, data: dia(l), empresas: new Set(), pessoas: new Set(), interacoes: 0 });
         const g = grupos.get(k);
         if (dia(l) < g.data) g.data = dia(l);
         g.empresas.add(l.empresa);
-        g.pessoas.add(pessoa(l));
+        if (limpa(l.nome)) g.pessoas.add(pessoa(l));
+        g.interacoes += 1;
       }
     }
     return [...grupos.values()].map((g) => {
       const lista = [...g.empresas];
-      const ja = lista.filter((e) => estreia.get(e) < g.data).length;
-      return { setor: g.setor, evento: g.evento, data: g.data, empresas: lista.length, ja_conheciam: ja, primeira_vez: lista.length - ja, pessoas: g.pessoas.size };
+      const ano = anoDe(g.data);
+      const ja = lista.filter((e) => estreia.get(`${e}\u0000${ano}`) < g.data).length;
+      return {
+        setor: g.setor, evento: g.evento, data: g.data, ano, empresas: lista.length, ja_no_ano: ja, primeira_do_ano: lista.length - ja,
+        pessoas: g.pessoas.size, interacoes: g.interacoes,
+      };
     });
   };
 
@@ -500,17 +607,59 @@
     for (const l of linhas) {
       if (!limpa(l.nome)) continue;
       const k = pessoa(l);
-      if (!m.has(k)) m.set(k, { chave: k, nome: limpa(l.nome), empresa: l.empresa, setor: l.setor || SEM_SETOR, cargo: '', dataCargo: '', eventos: new Set(), vezes: 0, datas: [] });
+      if (!m.has(k)) {
+        m.set(k, { chave: k, nome: limpa(l.nome), empresa: l.empresa, setor: l.setor || SEM_SETOR, mu: '', cargo: '', dataCargo: '', grade: '', dataGrade: '',
+          eventos: new Set(), vezes: 0, datas: [], anos: new Set() });
+      }
       const p = m.get(k);
       p.eventos.add(l.evento);
       p.vezes += 1;
       p.datas.push(dia(l));
+      p.anos.add(anoDe(dia(l)));
+      if (!p.mu && limpa(l.mu)) p.mu = limpa(l.mu);
       if (limpa(l.cargo) && dia(l) >= p.dataCargo) { p.cargo = limpa(l.cargo); p.dataCargo = dia(l); }
+      const g = limpa(l.grade);
+      if (g && g !== SEM_GRADE && dia(l) >= p.dataGrade) { p.grade = g; p.dataGrade = dia(l); }
     }
     return [...m.values()].map((p) => {
       const datas = p.datas.sort();
-      return { chave: p.chave, nome: p.nome, empresa: p.empresa, setor: p.setor, cargo: p.cargo, eventos: p.eventos.size, vezes: p.vezes, primeiro_contato: datas[0], ultimo_contato: datas[datas.length - 1] };
+      return {
+        chave: p.chave, nome: p.nome, empresa: p.empresa, setor: p.setor, mu: p.mu, cargo: p.cargo, grade: p.grade || SEM_GRADE,
+        eventos: p.eventos.size, vezes: p.vezes, anos: [...p.anos].sort(), primeiro_contato: datas[0], ultimo_contato: datas[datas.length - 1],
+      };
     });
+  };
+
+  // Quantas pessoas em cada grade (cada pessoa conta uma vez, com a grade mais recente).
+  const porGrade = (linhas) => {
+    const contagem = new Map();
+    for (const p of porPessoa(linhas)) contagem.set(p.grade, (contagem.get(p.grade) || 0) + 1);
+    return [...contagem.entries()].map(([grade, pessoas]) => ({ grade, pessoas }))
+      .sort((a, b) => posicaoGrade(a.grade) - posicaoGrade(b.grade) || a.grade.localeCompare(b.grade, 'pt-BR'));
+  };
+
+  // Cada lista (ex.: "Compilado 2026") com os envios que já recebeu.
+  const listas = (linhas) => {
+    const m = new Map();
+    for (const l of linhas) {
+      const nome = nomeDaLista(l);
+      if (!m.has(nome)) m.set(nome, { lista: nome, linhas: 0, eventos: new Set(), envios: new Map() });
+      const g = m.get(nome);
+      g.linhas += 1;
+      g.eventos.add(l.evento);
+      if (!l.lote) continue;
+      if (!g.envios.has(l.lote)) {
+        g.envios.set(l.lote, { lote: l.lote, arquivo: l.arquivo || '', enviado_por: l.enviado_por || '', enviado_por_nome: l.enviado_por_nome || '',
+          enviado_por_id: l.enviado_por_id || '', criado_em: l.criado_em || '', linhas: 0 });
+      }
+      const e = g.envios.get(l.lote);
+      e.linhas += 1;
+      if (l.criado_em && (!e.criado_em || l.criado_em < e.criado_em)) e.criado_em = l.criado_em;
+    }
+    return [...m.values()].map((g) => {
+      const envios = [...g.envios.values()].sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)));
+      return { lista: g.lista, linhas: g.linhas, eventos: [...g.eventos], envios, atualizada_em: envios.length ? envios[0].criado_em : '' };
+    }).sort((a, b) => String(b.atualizada_em).localeCompare(String(a.atualizada_em)) || a.lista.localeCompare(b.lista, 'pt-BR'));
   };
 
   const lotes = (linhas) => {
@@ -519,7 +668,7 @@
       if (!l.lote) continue;
       if (!m.has(l.lote)) {
         m.set(l.lote, {
-          lote: l.lote, arquivo: l.arquivo || '', enviado_por: l.enviado_por || '', enviado_por_nome: l.enviado_por_nome || '',
+          lote: l.lote, lista: nomeDaLista(l), arquivo: l.arquivo || '', enviado_por: l.enviado_por || '', enviado_por_nome: l.enviado_por_nome || '',
           enviado_por_id: l.enviado_por_id || '', criado_em: l.criado_em || '', linhas: 0, eventos: new Set(),
         });
       }
@@ -532,7 +681,8 @@
   };
 
   return {
-    VERSAO, SEM_SETOR, SETORES, INTERACOES, INTERACAO_PADRAO, CAMPOS,
+    VERSAO, SEM_SETOR, SEM_MU, SEM_GRADE, SETORES, INTERACOES, INTERACAO_PADRAO, ORDEM_GRADES, CAMPOS,
+    inferirGrade, normalizaGrade, normalizaMU, posicaoGrade, anoDe, semDia, nomeDaLista, porGrade, listas,
     semAcento, limpa, chave, capitaliza, tiraSufixos, empresaExibicao, chaveEmpresa, ehCapgemini,
     dominio, dominioCorporativo, empresaDoDominio, normalizaSetor, inferirSetor, normalizaInteracao, dataISO,
     mapeiaColunas, achaCabecalho, lerCSV, chaveLinha, preparaLinhas,

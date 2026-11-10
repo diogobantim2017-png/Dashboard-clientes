@@ -19,11 +19,18 @@ create table if not exists public.cruz_interacoes (
   enviado_por text,
   enviado_por_nome text,
   enviado_por_id uuid default auth.uid(),
+  mu text,
+  grade text,
+  lista text,
   criado_em timestamptz not null default now()
 );
--- Para quem já tinha rodado a versão anterior: acrescenta quem subiu cada lista
+-- Para quem já tinha rodado uma versão anterior: acrescenta o que falta
 alter table public.cruz_interacoes add column if not exists enviado_por_nome text;
 alter table public.cruz_interacoes add column if not exists enviado_por_id uuid default auth.uid();
+alter table public.cruz_interacoes add column if not exists mu text;
+alter table public.cruz_interacoes add column if not exists grade text;
+alter table public.cruz_interacoes add column if not exists lista text;
+create index if not exists cruz_interacoes_lista_idx on public.cruz_interacoes (lista);
 create index if not exists cruz_interacoes_empresa_idx on public.cruz_interacoes (empresa);
 create index if not exists cruz_interacoes_lote_idx on public.cruz_interacoes (lote);
 create index if not exists cruz_interacoes_enviado_por_idx on public.cruz_interacoes (enviado_por_id);

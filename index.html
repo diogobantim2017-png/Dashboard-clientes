@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="versao-site" content="5">
+  <meta name="versao-site" content="6">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mapa de cruzamentos: clientes × eventos</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300112C'/%3E%3Ccircle cx='22' cy='24' r='7' fill='%2300AEEF'/%3E%3Ccircle cx='42' cy='24' r='4' fill='%230070AD'/%3E%3Ccircle cx='22' cy='42' r='4' fill='%230070AD'/%3E%3Ccircle cx='42' cy='42' r='8' fill='%2300AEEF'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilo.css?v=5">
+  <link rel="stylesheet" href="estilo.css?v=6">
 </head>
 <body>
   <div id="tela-carregando" class="tela tela-centro"><p class="nota">Abrindo o mapa de cruzamentos…</p></div>
@@ -68,7 +68,7 @@
       <section class="abertura">
         <div>
           <h1 class="abertura-titulo">Quais clientes encontraram a Capgemini nos nossos eventos</h1>
-          <p class="abertura-texto">Cada evento tem a lista de quem passou por lá. Aqui você vê quem foi, quando e quantas vezes cada empresa e cada pessoa voltou.</p>
+          <p class="abertura-texto">Cada evento tem a lista de quem passou por lá. Aqui você vê quem foi, quando, quantas vezes cada empresa e cada pessoa interagiu com a gente e em que ano.</p>
         </div>
         <div class="abertura-acoes">
           <button id="botao-subir" type="button" class="botao botao-principal botao-grande"><span data-icone="subir"></span>Subir lista de um evento</button>
@@ -90,10 +90,17 @@
       </section>
 
       <div id="painel" hidden>
+        <section class="filtros-globais" id="filtros-globais" aria-label="Filtros do mapa">
+          <div class="filtro-linha" id="linha-ano" hidden><span class="filtro-rotulo">Ano</span><div id="chips-ano" class="filtros-setor"></div></div>
+          <div class="filtro-linha" id="linha-mu" hidden><span class="filtro-rotulo">MU</span><div id="chips-mu" class="filtros-setor"></div></div>
+          <div class="filtro-linha" id="linha-setor" hidden><span class="filtro-rotulo">Setor</span><div id="chips-setor" class="filtros-setor"></div></div>
+          <div class="filtro-linha" id="linha-grade" hidden><span class="filtro-rotulo">Grade</span><div id="pilula-grade"></div></div>
+        </section>
+
         <section class="numeros" aria-label="Resumo">
-          <div class="numero"><span class="numero-icone" data-icone="empresa"></span><span class="numero-valor" id="num-empresas">—</span><span class="numero-texto">empresas encontraram a gente</span></div>
-          <div class="numero"><span class="numero-icone" data-icone="volta"></span><span class="numero-valor" id="num-recorrentes">—</span><span class="numero-texto">empresas voltaram em mais de um evento</span></div>
+          <div class="numero"><span class="numero-icone" data-icone="empresa"></span><span class="numero-valor" id="num-empresas">—</span><span class="numero-texto" id="num-empresas-texto">empresas encontraram a gente</span></div>
           <div class="numero"><span class="numero-icone" data-icone="pessoas"></span><span class="numero-valor" id="num-pessoas">—</span><span class="numero-texto">pessoas de clientes</span></div>
+          <div class="numero"><span class="numero-icone" data-icone="interacoes"></span><span class="numero-valor" id="num-interacoes">—</span><span class="numero-texto">interações (almoço, coquetel, estande…)</span></div>
           <div class="numero"><span class="numero-icone" data-icone="calendario"></span><span class="numero-valor" id="num-eventos">—</span><span class="numero-texto">eventos com lista</span></div>
         </section>
 
@@ -102,8 +109,16 @@
             <h2>Eventos</h2>
             <p class="nota">Do mais antigo ao mais recente. Clique num evento para ver quem foi.</p>
           </div>
-          <div class="legenda" aria-hidden="true"><span><i class="cor-ja"></i>Já conheciam a Capgemini</span><span><i class="cor-nova"></i>Primeiro encontro</span></div>
+          <div class="legenda" aria-hidden="true"><span><i class="cor-ja"></i>Já tinham interagido no ano</span><span><i class="cor-nova"></i>Primeira interação do ano</span></div>
           <div id="linha-eventos" class="rolagem-lateral"></div>
+        </section>
+
+        <section class="bloco" id="grades-bloco">
+          <div class="bloco-topo">
+            <h2>Pessoas por grade</h2>
+            <p class="nota">Quantas pessoas de cada nível de cargo interagiram com a gente. Clique numa grade para ver só essas pessoas.</p>
+          </div>
+          <div id="grades"></div>
         </section>
 
         <section class="bloco" id="empresas">
@@ -111,12 +126,9 @@
             <h2>Quem encontrou a gente</h2>
             <p class="nota">Veja por empresa ou por pessoa. Quem mais veio aparece primeiro; clique para ver cada encontro.</p>
           </div>
-          <div id="area-filtros" class="filtros-area">
+          <div id="area-filtros" class="filtros">
             <div id="alternador"></div>
-            <div class="filtros">
-              <div id="chips-setor" class="filtros-setor" role="group" aria-label="Filtrar por setor"></div>
-              <input id="busca" class="busca" type="search" placeholder="Procurar nome ou empresa" aria-label="Procurar nome ou empresa">
-            </div>
+            <input id="busca" class="busca" type="search" placeholder="Procurar nome, empresa ou cargo" aria-label="Procurar nome, empresa ou cargo">
           </div>
           <div id="grade-empresas"></div>
           <div id="grade-pessoas" hidden></div>
@@ -143,11 +155,23 @@
 
       <div id="envio-resultado" class="envio-resultado" hidden>
         <p id="envio-arquivo" class="nota"></p>
+        <div class="caixa-lista">
+          <p><b>Esta planilha é…</b></p>
+          <label class="opcao"><input type="radio" name="tipo-envio" value="nova" checked> Uma lista nova</label>
+          <label class="campo" id="campo-nome-lista">Nome da lista (para saber de onde veio cada interação) <input id="nome-lista" type="text" maxlength="120"></label>
+          <label class="opcao"><input type="radio" name="tipo-envio" value="atualizar"> Uma atualização de uma lista que já está no mapa (ex.: o compilado do ano)</label>
+          <div id="campos-atualizar" class="campos-atualizar" hidden>
+            <label class="campo">Qual lista? <select id="lista-existente"></select></label>
+            <label class="opcao"><input type="radio" name="modo-atualizar" value="somar" checked> Somar só o que é novo (o que já está no mapa não se repete)</label>
+            <label class="opcao"><input type="radio" name="modo-atualizar" value="trocar"> Trocar a lista inteira por esta versão (use se corrigiu nomes ou tirou linhas)</label>
+          </div>
+        </div>
         <div id="envio-falta-evento" class="caixa-pergunta" hidden>
-          <p><b>De qual evento é esta lista?</b> A planilha não diz.</p>
+          <p id="envio-pergunta-texto"><b>De qual evento é esta lista?</b> A planilha não diz.</p>
           <div class="linha-campos">
-            <label class="campo">Evento <input id="evento-padrao" list="lista-eventos" autocomplete="off" placeholder="Ex.: FEBRABAN Tech 2026"></label>
-            <label class="campo">Data (primeiro dia) <input id="data-padrao" type="date"></label>
+            <label class="campo" id="campo-evento-padrao">Evento <input id="evento-padrao" list="lista-eventos" autocomplete="off" placeholder="Ex.: FEBRABAN Tech 2026"></label>
+            <label class="campo">Data (se souber) <input id="data-padrao" type="date"></label>
+            <label class="campo">Ano <select id="ano-padrao"></select></label>
           </div>
           <datalist id="lista-eventos"></datalist>
         </div>
@@ -176,8 +200,8 @@
       </div>
 
       <section class="secao">
-        <h3>Listas que já subiram</h3>
-        <p class="nota">Se uma lista subiu errada, exclua só ela. O resto continua.</p>
+        <h3>Listas no mapa</h3>
+        <p class="nota">Cada lista mostra os envios que recebeu (quando e por quem). Dá para excluir só um envio ou a lista inteira.</p>
         <ul id="lista-lotes" class="lotes"></ul>
       </section>
 
@@ -235,8 +259,8 @@
   <script src="supabase.js"></script>
   <script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
-  <script src="regras.js?v=5"></script>
-  <script src="visual.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="regras.js?v=6"></script>
+  <script src="visual.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
