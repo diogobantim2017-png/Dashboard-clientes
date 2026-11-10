@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mapa de cruzamentos: clientes x eventos</title>
+  <title>Mapa de cruzamentos: clientes × eventos</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300112C'/%3E%3Ccircle cx='22' cy='24' r='7' fill='%2300AEEF'/%3E%3Ccircle cx='42' cy='24' r='4' fill='%230070AD'/%3E%3Ccircle cx='22' cy='42' r='4' fill='%230070AD'/%3E%3Ccircle cx='42' cy='42' r='8' fill='%2300AEEF'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,14 +12,6 @@
 </head>
 <body>
   <div id="tela-carregando" class="tela tela-centro"><p class="nota">Abrindo o mapa de cruzamentos…</p></div>
-
-  <div id="tela-config" class="tela tela-centro" hidden>
-    <div class="cartao cartao-estreito">
-      <h1>Falta um passo</h1>
-      <p>Abra o arquivo <b>config.js</b> e cole o endereço do projeto (Project URL) e a chave publishable do Supabase. Depois salve, e o site abre normalmente.</p>
-      <p class="nota">O passo a passo está no arquivo LEIA-ME.md.</p>
-    </div>
-  </div>
 
   <div id="tela-erro" class="tela tela-centro" hidden>
     <div class="cartao cartao-estreito">
@@ -46,13 +38,10 @@
       <div class="topo-dentro">
         <div class="topo-marca">
           <img id="logo" class="logo" src="logo-capgemini.svg" alt="Capgemini" hidden>
-          <div>
-            <h1 class="titulo">Mapa de cruzamentos</h1>
-            <p class="subtitulo">Onde cada cliente cruzou com a Capgemini</p>
-          </div>
+          <p class="titulo">Mapa de cruzamentos</p>
         </div>
         <div class="topo-status">
-          <span id="ao-vivo" class="ao-vivo" data-estado="conectando"><span class="ponto" aria-hidden="true"></span><span id="ao-vivo-texto" aria-live="polite">Conectando ao vivo…</span></span>
+          <span id="ao-vivo" class="ao-vivo" data-estado="conectando"><span class="ponto" aria-hidden="true"></span><span id="ao-vivo-texto" aria-live="polite">Conectando…</span></span>
           <span id="usuario-email" class="usuario"></span>
           <button id="botao-sair" type="button" class="botao botao-claro">Sair</button>
         </div>
@@ -60,194 +49,159 @@
     </header>
 
     <main class="conteudo">
+      <p id="faixa-demo" class="faixa" hidden>Você está vendo uma demonstração com dados fictícios. Nada do que você fizer aqui é salvo. Para usar com o time, siga o arquivo LEIA-ME.</p>
       <div id="faixa-exemplo" class="faixa" hidden>
-        <span>O painel está com dados de exemplo (fictícios).</span>
+        <span>Os dados de exemplo (fictícios) estão no mapa.</span>
         <button id="botao-apagar-exemplo" type="button" class="botao botao-secundario">Apagar exemplo</button>
       </div>
 
-      <section class="acoes" aria-label="Ações e filtros">
-        <div class="acoes-principais">
-          <button id="botao-subir" type="button" class="botao botao-principal">Subir lista</button>
-          <a class="botao botao-secundario" href="modelo-lista-cruzamentos.xlsx" download>Baixar modelo de planilha</a>
-          <button id="botao-baixar" type="button" class="botao botao-secundario">Baixar todos os dados</button>
+      <section class="abertura">
+        <div>
+          <h1 class="abertura-titulo">Quais clientes encontraram a Capgemini nos nossos eventos</h1>
+          <p class="abertura-texto">Cada evento tem a lista de quem passou por lá. Aqui você vê quem foi, quando e quantas vezes cada empresa voltou.</p>
         </div>
-        <div class="filtros">
-          <label class="campo campo-filtro">Setor <select id="filtro-setor"></select></label>
-          <label class="campo campo-filtro">Empresa <select id="filtro-empresa"></select></label>
-          <button id="botao-limpar" type="button" class="botao botao-fantasma">Limpar filtros</button>
+        <div class="abertura-acoes">
+          <button id="botao-subir" type="button" class="botao botao-principal botao-grande"><span data-icone="subir"></span>Subir lista de um evento</button>
+          <button id="botao-gerenciar" type="button" class="botao botao-secundario"><span data-icone="lista"></span>Gerenciar listas</button>
         </div>
       </section>
 
       <section id="vazio" class="cartao vazio" hidden>
-        <h2>Ainda não tem nenhuma lista aqui</h2>
-        <p>Suba a lista de um evento para começar. Se quiser ver como o painel fica antes, carregue um exemplo com dados fictícios e apague depois.</p>
-        <div class="acoes-principais">
-          <button type="button" class="botao botao-principal" data-acao="subir">Subir lista</button>
+        <h2>Como funciona</h2>
+        <ol class="passos-vazio">
+          <li><span class="passo-icone" data-icone="calendario"></span><b>Depois do evento</b><span>pegue a lista de quem passou por lá: check-in, crachás do estande, convidados.</span></li>
+          <li><span class="passo-icone" data-icone="subir"></span><b>Clique em “Subir lista”</b><span>e escolha a planilha. O site arruma os nomes e tira os repetidos.</span></li>
+          <li><span class="passo-icone" data-icone="pessoas"></span><b>Pronto</b><span>quem estiver com o site aberto vê na hora as empresas que encontraram a gente.</span></li>
+        </ol>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-principal" data-acao="subir">Subir a primeira lista</button>
           <button id="botao-exemplo" type="button" class="botao botao-secundario">Ver com dados de exemplo</button>
         </div>
       </section>
 
       <div id="painel" hidden>
-        <p id="destaque" class="destaque"></p>
-
-        <section class="kpis" aria-label="Resumo">
-          <p id="kpis-setor" class="kpis-setor">Todos os setores</p>
-          <div class="kpi"><span class="kpi-valor" id="kpi-empresas">—</span><span class="kpi-rotulo">empresas cruzaram com a gente</span></div>
-          <div class="kpi"><span class="kpi-valor" id="kpi-recorrentes">—</span><span class="kpi-rotulo">voltaram em 2 ou mais eventos</span></div>
-          <div class="kpi"><span class="kpi-valor" id="kpi-pessoas">—</span><span class="kpi-rotulo">pessoas diferentes</span></div>
-          <div class="kpi"><span class="kpi-valor" id="kpi-eventos">—</span><span class="kpi-rotulo">eventos com clientes registrados</span></div>
+        <section class="numeros" aria-label="Resumo">
+          <div class="numero"><span class="numero-icone" data-icone="empresa"></span><span class="numero-valor" id="num-empresas">—</span><span class="numero-texto">empresas encontraram a gente</span></div>
+          <div class="numero"><span class="numero-icone" data-icone="volta"></span><span class="numero-valor" id="num-recorrentes">—</span><span class="numero-texto">voltaram em mais de um evento</span></div>
+          <div class="numero"><span class="numero-icone" data-icone="pessoas"></span><span class="numero-valor" id="num-pessoas">—</span><span class="numero-texto">pessoas de clientes</span></div>
+          <div class="numero"><span class="numero-icone" data-icone="calendario"></span><span class="numero-valor" id="num-eventos">—</span><span class="numero-texto">eventos com lista</span></div>
         </section>
 
-        <section class="cartao cartao-mapa" id="mapa">
-          <h2>Onde cada empresa cruzou com a gente</h2>
-          <p class="nota">Cada bolinha é uma empresa num evento; quanto maior, mais pessoas dela estavam lá. Clique no nome de uma empresa para ver a jornada dela.</p>
-          <div id="grafico-mapa" class="grafico"></div>
+        <section class="bloco" id="eventos">
+          <div class="bloco-topo">
+            <h2>Eventos</h2>
+            <p class="nota">Do mais antigo ao mais recente. Clique num evento para ver quem foi.</p>
+          </div>
+          <div class="legenda" aria-hidden="true"><span><i class="cor-ja"></i>Já conheciam a Capgemini</span><span><i class="cor-nova"></i>Primeiro encontro</span></div>
+          <div id="linha-eventos" class="rolagem-lateral"></div>
         </section>
 
-        <section class="cartao" id="jornada">
-          <div class="cartao-topo">
-            <h2>Jornada da empresa</h2>
-            <button id="botao-fechar-jornada" type="button" class="botao botao-fantasma" hidden>Fechar</button>
+        <section class="bloco" id="empresas">
+          <div class="bloco-topo">
+            <h2>Empresas</h2>
+            <p class="nota">As que mais vieram aparecem primeiro. Clique numa empresa para ver cada encontro.</p>
           </div>
-          <p id="jornada-dica" class="nota">Escolha uma empresa no filtro, no mapa ou na tabela para ver cada ponto de contato dela com a Capgemini.</p>
-          <div id="jornada-conteudo" hidden>
-            <p class="jornada-nome" id="jornada-nome"></p>
-            <dl class="fatos">
-              <div><dt>Setor</dt><dd id="j-setor"></dd></div>
-              <div><dt>Eventos</dt><dd id="j-eventos"></dd></div>
-              <div><dt>Pessoas</dt><dd id="j-pessoas"></dd></div>
-              <div><dt>Primeiro contato</dt><dd id="j-primeiro"></dd></div>
-              <div><dt>Último contato</dt><dd id="j-ultimo"></dd></div>
-            </dl>
-            <div class="tabela-caixa">
-              <table class="tabela">
-                <thead><tr><th>Data</th><th>Evento</th><th>Pessoa</th><th>Cargo</th><th class="some-estreito">Interação</th><th class="some-estreito">Observações</th></tr></thead>
-                <tbody id="jornada-linhas"></tbody>
-              </table>
-            </div>
+          <div id="area-filtros" class="filtros">
+            <div id="chips-setor" class="filtros-setor" role="group" aria-label="Filtrar por setor"></div>
+            <input id="busca" class="busca" type="search" placeholder="Procurar empresa" aria-label="Procurar empresa">
           </div>
+          <div id="grade-empresas"></div>
+          <div id="detalhe-empresa" class="detalhe" hidden></div>
         </section>
-
-        <div class="duo">
-          <section class="cartao" id="empresas">
-            <h2>Empresas por número de eventos</h2>
-            <p class="nota">Clique numa linha para ver a jornada da empresa.</p>
-            <input id="busca" class="busca" type="search" placeholder="Buscar empresa ou setor" aria-label="Buscar empresa ou setor">
-            <div class="tabela-caixa">
-              <table class="tabela tabela-clicavel" id="tabela-empresas">
-                <thead><tr>
-                  <th data-campo="empresa" aria-sort="none"><button type="button">Empresa</button></th>
-                  <th data-campo="setor" aria-sort="none" class="some-estreito"><button type="button">Setor</button></th>
-                  <th data-campo="eventos" aria-sort="descending" class="num"><button type="button">Eventos</button></th>
-                  <th data-campo="pessoas" aria-sort="none" class="num"><button type="button">Pessoas</button></th>
-                  <th data-campo="ultimo_contato" aria-sort="none" class="some-estreito"><button type="button">Último contato</button></th>
-                </tr></thead>
-                <tbody id="empresas-linhas"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="cartao" id="eventos">
-            <h2>Empresas em cada evento</h2>
-            <p class="nota">Quantas já tinham passado por um evento anterior e quantas cruzaram com a gente pela primeira vez.</p>
-            <div class="legenda"><span><i class="amostra amostra-volta"></i>Já tinham cruzado com a gente</span><span><i class="amostra amostra-nova"></i>Primeiro contato</span></div>
-            <div id="grafico-eventos" class="grafico"></div>
-          </section>
-        </div>
-
-        <section class="cartao" id="ajustes">
-          <h2>Listas enviadas e ajustes</h2>
-          <p class="nota">Cada lista que alguém sobe aparece aqui. Se subiu errado, dá para excluir só aquela lista.</p>
-          <div class="tabela-caixa tabela-caixa-baixa">
-            <table class="tabela">
-              <thead><tr><th>Arquivo</th><th>Eventos</th><th class="num">Linhas</th><th class="some-estreito">Enviada por</th><th class="some-estreito">Quando</th><th><span class="so-leitor">Ação</span></th></tr></thead>
-              <tbody id="lotes-linhas"></tbody>
-            </table>
-          </div>
-          <div class="ajustes-grade">
-            <div class="ajuste">
-              <h3>Juntar duas empresas que são a mesma</h3>
-              <p class="nota">Ex.: “Itaú” e “Itaú Unibanco”. Os contatos passam para a empresa que fica, e as próximas listas já entram certas.</p>
-              <label class="campo">Esta empresa… <select id="juntar-origem"></select></label>
-              <label class="campo">…passa a ser esta <select id="juntar-destino"></select></label>
-              <button id="botao-juntar" type="button" class="botao botao-secundario">Juntar empresas</button>
-            </div>
-            <div class="ajuste">
-              <h3>Mudar o setor de uma empresa</h3>
-              <p class="nota">Vale para todos os contatos dessa empresa.</p>
-              <label class="campo">Empresa <select id="setor-empresa"></select></label>
-              <label class="campo">Novo setor <select id="setor-novo"></select></label>
-              <button id="botao-setor" type="button" class="botao botao-secundario">Salvar setor</button>
-            </div>
-          </div>
-        </section>
-
-        <details class="ajuda" id="como-montar">
-          <summary>Como montar e subir uma nova lista</summary>
-          <ol>
-            <li>Depois de cada evento, junte quem passou por lá: lista de presença ou check-in, crachás lidos no estande, convidados da sala VIP e dos encontros, respostas dos formulários e anotações do time comercial.</li>
-            <li>Use o modelo de planilha (botão “Baixar modelo de planilha”): uma linha por pessoa em cada evento. Só Evento, Data e Empresa são obrigatórios. Listas em outros formatos também funcionam, porque o site reconhece as colunas mais comuns.</li>
-            <li>Clique em “Subir lista”, escolha o arquivo, confira o resumo e clique em “Enviar”. Quem estiver com o site aberto vê a mudança na hora.</li>
-            <li>Pessoas da própria Capgemini e linhas repetidas ficam de fora sozinhas. O e-mail serve só para achar a empresa e não é guardado.</li>
-            <li>Use só listas coletadas com o aviso de privacidade do evento (LGPD).</li>
-          </ol>
-        </details>
       </div>
     </main>
   </div>
 
-  <dialog id="dlg-subir" class="dialogo" aria-labelledby="dlg-titulo">
+  <dialog id="dlg-subir" class="dialogo" aria-labelledby="dlg-subir-titulo">
     <div class="dialogo-corpo">
-      <div class="cartao-topo">
-        <h2 id="dlg-titulo">Subir lista de um evento</h2>
+      <div class="dialogo-topo">
+        <h2 id="dlg-subir-titulo">Subir lista de um evento</h2>
         <button type="button" class="botao botao-fantasma" data-fechar>Fechar</button>
       </div>
-      <div class="passo">
-        <h3>1. Escolha a planilha</h3>
-        <p class="nota">Excel (.xlsx ou .xls) ou CSV. Pode ser o modelo ou a lista do jeito que veio do evento.</p>
+      <label class="zona-arquivo" id="zona-arquivo">
+        <span class="zona-icone" data-icone="subir"></span>
+        <span class="zona-titulo">Clique aqui e escolha a planilha do evento</span>
+        <span class="nota">Excel ou CSV. Pode ser o modelo ou a lista do jeito que veio do evento.</span>
         <input id="arquivo" type="file" accept=".xlsx,.xls,.csv,.txt">
-        <p id="arquivo-info" class="nota" hidden></p>
-      </div>
-      <div class="passo" id="passo-colunas" hidden>
-        <h3>2. Confira as colunas</h3>
-        <p class="nota">O site já ligou cada informação a uma coluna da planilha. Ajuste se alguma estiver errada.</p>
-        <div id="mapa-colunas" class="mapa-colunas"></div>
-      </div>
-      <div class="passo" id="passo-evento" hidden>
-        <h3>3. De qual evento é esta lista?</h3>
-        <p class="nota">Preencha se a planilha não tiver as colunas Evento e Data. Se tiver, pode deixar em branco.</p>
-        <div class="linha-campos">
-          <label class="campo">Evento <input id="evento-padrao" list="lista-eventos" autocomplete="off" placeholder="Ex.: FEBRABAN Tech 2026"></label>
-          <label class="campo">Data (primeiro dia) <input id="data-padrao" type="date"></label>
+      </label>
+      <p class="nota">Ainda não tem a planilha? <a href="modelo-lista-cruzamentos.xlsx" download>Baixe o modelo</a>.</p>
+
+      <div id="envio-resultado" class="envio-resultado" hidden>
+        <p id="envio-arquivo" class="nota"></p>
+        <div id="envio-falta-evento" class="caixa-pergunta" hidden>
+          <p><b>De qual evento é esta lista?</b> A planilha não diz.</p>
+          <div class="linha-campos">
+            <label class="campo">Evento <input id="evento-padrao" list="lista-eventos" autocomplete="off" placeholder="Ex.: FEBRABAN Tech 2026"></label>
+            <label class="campo">Data (primeiro dia) <input id="data-padrao" type="date"></label>
+          </div>
+          <datalist id="lista-eventos"></datalist>
         </div>
-        <datalist id="lista-eventos"></datalist>
+        <div id="envio-resumo" class="envio-resumo" aria-live="polite"></div>
+        <ul id="envio-amostra" class="amostra"></ul>
+        <details class="ajuste-colunas">
+          <summary>Ajustar colunas (só se algo saiu errado)</summary>
+          <p class="nota">O site liga cada informação a uma coluna da planilha. Troque aqui se alguma estiver errada.</p>
+          <div id="mapa-colunas" class="mapa-colunas"></div>
+        </details>
       </div>
-      <div class="passo" id="passo-resumo" hidden>
-        <h3>4. Confira e envie</h3>
-        <div id="resumo-envio" class="resumo-envio" aria-live="polite"></div>
-        <div class="tabela-caixa tabela-caixa-baixa">
-          <table class="tabela">
-            <thead><tr><th>Evento</th><th>Data</th><th>Empresa</th><th>Setor</th><th>Pessoa</th><th class="some-estreito">Cargo</th><th class="some-estreito">Interação</th></tr></thead>
-            <tbody id="previa-linhas"></tbody>
-          </table>
-        </div>
-        <p class="nota">Mostrando até 8 linhas como amostra.</p>
-      </div>
+
       <p id="envio-erro" class="erro" role="alert" hidden></p>
       <div class="dialogo-rodape">
         <button type="button" class="botao botao-fantasma" data-fechar>Cancelar</button>
-        <button id="botao-enviar" type="button" class="botao botao-principal" disabled>Enviar</button>
+        <button id="botao-enviar" type="button" class="botao botao-principal" disabled>Colocar no mapa</button>
       </div>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-gerenciar" class="dialogo" aria-labelledby="dlg-gerenciar-titulo">
+    <div class="dialogo-corpo">
+      <div class="dialogo-topo">
+        <h2 id="dlg-gerenciar-titulo">Gerenciar listas</h2>
+        <button type="button" class="botao botao-fantasma" data-fechar>Fechar</button>
+      </div>
+
+      <section class="secao">
+        <h3>Listas que já subiram</h3>
+        <p class="nota">Se uma lista subiu errada, exclua só ela. O resto continua.</p>
+        <ul id="lista-lotes" class="lotes"></ul>
+      </section>
+
+      <section class="secao">
+        <h3>A mesma empresa apareceu com dois nomes?</h3>
+        <p class="nota">Ex.: “Itaú” e “Itaú Unibanco”. Junte as duas; as próximas listas já entram com o nome certo.</p>
+        <div class="linha-campos">
+          <label class="campo">Esta empresa… <select id="juntar-origem"></select></label>
+          <label class="campo">…passa a ser esta <select id="juntar-destino"></select></label>
+        </div>
+        <button id="botao-juntar" type="button" class="botao botao-secundario">Juntar empresas</button>
+      </section>
+
+      <section class="secao">
+        <h3>Setor errado?</h3>
+        <div class="linha-campos">
+          <label class="campo">Empresa <select id="setor-empresa"></select></label>
+          <label class="campo">Setor certo <select id="setor-novo"></select></label>
+        </div>
+        <button id="botao-setor" type="button" class="botao botao-secundario">Salvar setor</button>
+      </section>
+
+      <section class="secao">
+        <h3>Planilhas</h3>
+        <div class="linha-botoes">
+          <a class="botao botao-secundario" href="modelo-lista-cruzamentos.xlsx" download>Baixar modelo em branco</a>
+          <button id="botao-baixar" type="button" class="botao botao-secundario">Baixar tudo o que está no mapa</button>
+        </div>
+      </section>
     </div>
   </dialog>
 
   <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
 
   <script src="supabase.js"></script>
-  <script src="d3.min.js"></script>
   <script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
   <script src="regras.js"></script>
+  <script src="visual.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

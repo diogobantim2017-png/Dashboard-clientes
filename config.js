@@ -4,6 +4,6 @@
 // Nunca cole aqui a chave "secret".
 
 window.CRUZ_CONFIG = {
-  supabaseUrl: 'https://pkzygfuustqeibvkttpo.supabase.co',
-  supabaseKey: 'sb_publishable_gu6bAwKPGha1LRG-tK3H2w_B2-yecLE'
+  supabaseUrl: 'COLE_AQUI_A_PROJECT_URL',        // fica assim: https://abcdefghijkl.supabase.co
+  supabaseKey: 'COLE_AQUI_A_CHAVE_PUBLISHABLE',  // começa com sb_publishable_
 };

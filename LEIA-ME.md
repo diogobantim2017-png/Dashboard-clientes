@@ -1,8 +1,10 @@
 # Mapa de cruzamentos: clientes × eventos
 
-Site onde o time sobe as listas de cada evento e vê, ao vivo, onde cada cliente cruzou com a Capgemini.
+Site onde o time sobe as listas de cada evento e vê, ao vivo, quais clientes encontraram a Capgemini.
 
-São quatro partes. Faça uma de cada vez, na ordem.
+**Quer ver antes de configurar?** Descompacte o zip e dê dois cliques no arquivo `index.html`. Ele abre no navegador uma demonstração com dados fictícios (nada é salvo).
+
+Para colocar no ar são quatro partes. Faça uma de cada vez, na ordem.
 
 ---
 
@@ -69,9 +71,9 @@ São quatro partes. Faça uma de cada vez, na ordem.
 
 ## Bom saber
 
-- **Subir uma lista:** botão **Subir lista**. O site aceita o modelo de planilha e também listas do jeito que vêm dos eventos (Excel ou CSV). Antes de enviar, ele mostra o que vai entrar e o que fica de fora.
-- **Errou a lista?** Em **Listas enviadas e ajustes**, clique em **Excluir** na linha dela.
-- **Mesma empresa com dois nomes?** Use **Juntar duas empresas que são a mesma**. As próximas listas já entram com o nome certo.
+- **Subir uma lista:** botão **Subir lista de um evento**. O site aceita o modelo de planilha e também listas do jeito que vêm dos eventos (Excel ou CSV). Antes de enviar, ele mostra quantas pessoas vão entrar e o que fica de fora.
+- **Errou a lista?** Clique em **Gerenciar listas** e em **Excluir** na lista errada.
+- **Mesma empresa com dois nomes?** Em **Gerenciar listas**, use **A mesma empresa apareceu com dois nomes?**. As próximas listas já entram com o nome certo.
 - **Atualizar o site depois:** se eu te mandar um arquivo novo, no GitHub clique em **Add file** → **Upload files**, arraste o arquivo (com o mesmo nome) e clique em **Commit changes**. O Render atualiza sozinho em 1 ou 2 minutos.
 - **Logo da Capgemini no topo (opcional):** suba no GitHub o arquivo oficial do logo com o nome `logo-capgemini.svg` e ele aparece sozinho.
 - **Projeto parado:** no plano grátis, o Supabase pausa o projeto depois de uns dias sem ninguém usar. Se o site parar de carregar, entre no Supabase e clique em **Restore project**.
@@ -85,7 +87,8 @@ São quatro partes. Faça uma de cada vez, na ordem.
 | estilo.css | cores e visual |
 | app.js | o funcionamento do site |
 | regras.js | como o site lê as planilhas e faz as contas |
+| visual.js | os cartões, a linha do tempo e os ícones |
 | config.js | onde ficam a Project URL e a chave publishable |
-| supabase.js e d3.min.js | peças prontas que o site usa (não mexa) |
+| supabase.js | peça pronta que conecta o site ao Supabase (não mexa) |
 | banco.sql | cria as tabelas no Supabase (Parte 1) |
 | modelo-lista-cruzamentos.xlsx | modelo de planilha para o time preencher |
