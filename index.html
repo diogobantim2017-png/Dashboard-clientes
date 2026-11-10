@@ -2,16 +2,32 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <meta name="versao-site" content="4">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mapa de cruzamentos: clientes × eventos</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300112C'/%3E%3Ccircle cx='22' cy='24' r='7' fill='%2300AEEF'/%3E%3Ccircle cx='42' cy='24' r='4' fill='%230070AD'/%3E%3Ccircle cx='22' cy='42' r='4' fill='%230070AD'/%3E%3Ccircle cx='42' cy='42' r='8' fill='%2300AEEF'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilo.css">
+  <link rel="stylesheet" href="estilo.css?v=4">
 </head>
 <body>
   <div id="tela-carregando" class="tela tela-centro"><p class="nota">Abrindo o mapa de cruzamentos…</p></div>
+
+  <div id="tela-config" class="tela tela-centro" hidden>
+    <div class="cartao cartao-estreito">
+      <p class="marca">Mapa de cruzamentos</p>
+      <h1>Falta ligar o site ao Supabase</h1>
+      <p>Sem isso, o site não pede senha e não salva as listas. Para ligar:</p>
+      <ol class="passos-config">
+        <li>No GitHub, clique no arquivo <b>config.js</b> e depois no lápis (editar).</li>
+        <li>Troque <b>COLE_AQUI_A_PROJECT_URL</b> pela Project URL do Supabase.</li>
+        <li>Troque <b>COLE_AQUI_A_CHAVE_PUBLISHABLE</b> pela chave publishable.</li>
+        <li>Clique em <b>Commit changes</b>, espere 1 minuto e recarregue esta página.</li>
+      </ol>
+      <p class="nota">Só quer ver como o site fica? <a href="?demo=1">Abrir a demonstração</a>.</p>
+    </div>
+  </div>
 
   <div id="tela-erro" class="tela tela-centro" hidden>
     <div class="cartao cartao-estreito">
@@ -42,7 +58,7 @@
         </div>
         <div class="topo-status">
           <span id="ao-vivo" class="ao-vivo" data-estado="conectando"><span class="ponto" aria-hidden="true"></span><span id="ao-vivo-texto" aria-live="polite">Conectando…</span></span>
-          <span id="usuario-email" class="usuario"></span>
+          <button id="botao-perfil" type="button" class="botao botao-claro"><span data-icone="pessoas"></span><span id="perfil-nome">Meu perfil</span></button>
           <button id="botao-sair" type="button" class="botao botao-claro">Sair</button>
         </div>
       </div>
@@ -200,13 +216,33 @@
     </div>
   </dialog>
 
+  <dialog id="dlg-perfil" class="dialogo" aria-labelledby="dlg-perfil-titulo">
+    <div class="dialogo-corpo">
+      <div class="dialogo-topo">
+        <h2 id="dlg-perfil-titulo">Meu perfil</h2>
+        <button type="button" class="botao botao-fantasma" data-fechar>Fechar</button>
+      </div>
+      <section class="secao secao-primeira">
+        <p id="perfil-email" class="nota"></p>
+        <label class="campo">Seu nome no mapa <input id="perfil-campo-nome" type="text" autocomplete="name" maxlength="80"></label>
+        <p class="nota">É o nome que aparece para o time nas listas que você sobe.</p>
+        <button id="botao-salvar-nome" type="button" class="botao botao-secundario">Salvar nome</button>
+      </section>
+      <section class="secao">
+        <h3>Listas que você subiu</h3>
+        <p id="perfil-resumo" class="perfil-resumo"></p>
+        <ul id="perfil-lotes" class="lotes"></ul>
+      </section>
+    </div>
+  </dialog>
+
   <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
 
   <script src="supabase.js"></script>
   <script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
-  <script src="regras.js"></script>
-  <script src="visual.js"></script>
-  <script src="app.js"></script>
+  <script src="regras.js?v=4"></script>
+  <script src="visual.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

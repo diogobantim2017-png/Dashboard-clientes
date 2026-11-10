@@ -74,6 +74,12 @@ a { color: var(--destaque); }
 .titulo { font-weight: 500; font-size: 1.05rem; }
 .topo-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 0.85rem; }
 .usuario { color: #A9C4E0; }
+.botao-claro svg { width: 16px; height: 16px; }
+.passos-config { margin: 0; padding-left: 1.3rem; display: grid; gap: 6px; }
+.secao-primeira { border-top: 0; padding-top: 0; }
+.perfil-resumo { font-size: 1.02rem; }
+.perfil-resumo b { color: var(--destaque); }
+.lote-voce { font-size: 0.75rem; font-weight: 500; color: var(--destaque); background: var(--tinta-forte); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
 .ao-vivo { display: inline-flex; align-items: center; gap: 8px; }
 .ao-vivo .ponto { width: 9px; height: 9px; border-radius: 50%; background: #8FA3BC; }
 .ao-vivo[data-estado="ok"] .ponto { background: var(--ciano); animation: pulso 2.4s ease-out infinite; }

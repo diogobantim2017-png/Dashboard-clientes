@@ -309,5 +309,5 @@
     caixa.append(ol);
   }
 
-  return { MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, el, icone, desenhaSetores, desenhaLinhaDoTempo, desenhaAlternador, desenhaEmpresas, desenhaPessoas, desenhaDetalhe, desenhaDetalhePessoa };
+  return { VERSAO: '4', MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, el, icone, desenhaSetores, desenhaLinhaDoTempo, desenhaAlternador, desenhaEmpresas, desenhaPessoas, desenhaDetalhe, desenhaDetalhePessoa };
 });

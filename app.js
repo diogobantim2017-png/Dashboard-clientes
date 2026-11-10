@@ -11,7 +11,8 @@
   const cfg = window.CRUZ_CONFIG || {};
   const TABELA = 'cruz_interacoes';
   const TABELA_APELIDOS = 'cruz_apelidos';
-  const COLUNAS = 'id,evento,data_evento,empresa,setor,nome,cargo,interacao,observacoes,lote,arquivo,enviado_por,criado_em';
+  const VERSAO = '4';
+  const COLUNAS = 'id,evento,data_evento,empresa,setor,nome,cargo,interacao,observacoes,lote,arquivo,enviado_por,enviado_por_nome,enviado_por_id,criado_em';
   const ARQUIVO_EXEMPLO = 'Dados de exemplo (fictícios)';
 
   // Sugestões de eventos (o site também usa os que já estão no banco).
@@ -81,6 +82,14 @@
     if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
+  // "diogo.a.ribeiro@capgemini.com" vira "Diogo A. Ribeiro"
+  const nomeDoEmail = (email) => {
+    const partes = String(email || '').split('@')[0].split(/[._-]+/).filter(Boolean);
+    if (!partes.length) return String(email || '');
+    return partes.map((p) => (p.length === 1 ? `${p.toUpperCase()}.` : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())).join(' ');
+  };
+  const nomeDoUsuario = (u) => R.limpa((u && u.user_metadata && u.user_metadata.nome) || '') || nomeDoEmail(u && u.email);
+  const quemEnviou = (l) => l.enviado_por_nome || (l.enviado_por ? nomeDoEmail(l.enviado_por) : '');
   const poucoMovimento = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const novoId = () => {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
@@ -111,6 +120,7 @@
     if (/invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
     if (/email not confirmed/i.test(m)) return 'Este usuário ainda não foi confirmado no Supabase (marque “Auto Confirm User” ao criar).';
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return 'Sem conexão com o Supabase. Verifique a internet e o endereço colado no config.js.';
+    if (/enviado_por_nome|enviado_por_id|column .* does not exist/i.test(m)) return 'O banco do Supabase está numa versão antiga. Rode o arquivo banco.sql novo no SQL Editor do Supabase.';
     if (/does not exist|could not find the table|schema cache/i.test(m)) return 'As tabelas ainda não existem no Supabase. Rode o arquivo banco.sql no SQL Editor.';
     if (/row-level security|permission denied|not allowed|42501/i.test(m)) return 'Sem permissão. Saia, entre de novo e confira se o banco.sql foi rodado inteiro.';
     if (/invalid api key|no api key|apikey/i.test(m)) return 'A chave do config.js está errada. Copie de novo a chave publishable no Supabase.';
@@ -143,7 +153,7 @@
           return { data: this.faixa ? tudo.slice(this.faixa[0], this.faixa[1] + 1) : tudo, error: null };
         }
         if (this.op === 'insert') {
-          for (const r of this.dados) tabela.push({ id: proximo++, criado_em: new Date().toISOString(), setor: R.SEM_SETOR, ...r });
+          for (const r of this.dados) tabela.push({ id: proximo++, criado_em: new Date().toISOString(), setor: R.SEM_SETOR, enviado_por_id: 'demo', ...r });
         } else if (this.op === 'update') tabela.filter(passa).forEach((r) => Object.assign(r, this.dados));
         else if (this.op === 'delete') banco[this.t] = tabela.filter((r) => !passa(r));
         else if (this.op === 'upsert') {
@@ -159,7 +169,10 @@
     }
     return {
       from: (t) => new Consulta(t),
-      auth: { signOut: async () => ({ error: null }) },
+      auth: {
+        signOut: async () => ({ error: null }),
+        updateUser: async ({ data }) => ({ data: { user: { ...estado.usuario, user_metadata: { ...(estado.usuario.user_metadata || {}), ...data } } }, error: null }),
+      },
       channel: () => {
         const canalFalso = {
           on: () => canalFalso,
@@ -178,6 +191,7 @@
   const estado = {
     demo: false,
     usuario: null,
+    nome: '',
     linhas: [],
     apelidos: [],
     calc: null,
@@ -204,8 +218,19 @@
     });
   }
 
+  const mostraErro = (texto) => {
+    const alvo = $('#erro-texto');
+    if (alvo) alvo.textContent = texto;
+    mostraTela('erro');
+  };
+
   async function iniciar() {
-    if (!R || !V) { $('#erro-texto').textContent = 'Os arquivos regras.js e visual.js precisam estar na mesma pasta do site.'; mostraTela('erro'); return; }
+    const meta = document.querySelector('meta[name="versao-site"]');
+    if (!R || !V) { mostraErro('Os arquivos regras.js e visual.js precisam estar na mesma pasta do site.'); return; }
+    if (!meta || meta.content !== VERSAO || R.VERSAO !== VERSAO || V.VERSAO !== VERSAO) {
+      mostraErro('Os arquivos do site estão misturados: alguns são de uma versão antiga. Suba de novo todos os arquivos do zip no GitHub (incluindo o index.html) e depois aperte Ctrl + F5 nesta página.');
+      return;
+    }
     colocaIcones();
     ligaEventos();
     const logo = $('#logo');
@@ -217,7 +242,13 @@
     const url = String(cfg.supabaseUrl || '').trim().replace(/\/+$/, '');
     const chave = String(cfg.supabaseKey || '').trim();
     const configurado = /^https:\/\/[^/]+$/.test(url) && chave.length >= 20 && !/COLE_AQUI/.test(url + chave);
-    if (!configurado) { iniciaDemo(); return; }
+    if (!configurado) {
+      const noComputador = window.location.protocol === 'file:';
+      const pediuDemo = /(^|[?&])demo(=|&|$)/.test(window.location.search.slice(1));
+      if (noComputador || pediuDemo) iniciaDemo();
+      else mostraTela('config');
+      return;
+    }
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       $('#erro-texto').textContent = 'O arquivo supabase.js precisa estar na mesma pasta do site. Confira se ele subiu para o GitHub e recarregue a página.';
       mostraTela('erro');
@@ -240,26 +271,27 @@
     const agora = new Date().toISOString();
     const linhas = EXEMPLO.map(([evento, dataEvento, empresa, setor, nome, cargo, interacao], i) => ({
       id: i + 1, evento, data_evento: dataEvento, empresa, setor, nome, cargo, interacao, observacoes: null,
-      lote, arquivo: ARQUIVO_EXEMPLO, enviado_por: 'demonstração', criado_em: agora,
+      lote, arquivo: ARQUIVO_EXEMPLO, enviado_por: '', enviado_por_nome: 'Exemplo', enviado_por_id: 'exemplo', criado_em: agora,
     }));
     sb = bancoLocal(linhas);
     $('#faixa-demo').hidden = false;
     $('#botao-sair').hidden = true;
-    await entrar({ id: 'demo', email: '' });
+    await entrar({ id: 'demo', email: '', user_metadata: { nome: 'Você (demonstração)' } });
   }
 
   async function entrar(usuario) {
     estado.usuario = usuario;
-    $('#usuario-email').textContent = usuario.email || '';
+    estado.nome = nomeDoUsuario(usuario);
+    $('#perfil-nome').textContent = estado.nome || 'Meu perfil';
     mostraTela('app');
     desenhaStatus();
-    await recarregar();
-    conectaTempoReal();
+    try { await recarregar(); } finally { conectaTempoReal(); }
   }
 
   function saiu() {
     if (canal && sb) { sb.removeChannel(canal); canal = null; }
     estado.usuario = null;
+    estado.nome = '';
     estado.linhas = [];
     estado.apelidos = [];
     estado.calc = null;
@@ -320,8 +352,12 @@
     } catch (e) {
       avisa(`Não deu para carregar os dados. ${traduzErro(e)}`, 'erro');
     } finally {
-      calcula();
-      desenhaTudo();
+      try {
+        calcula();
+        desenhaTudo();
+      } catch (e) {
+        avisa('Algo deu errado ao montar a tela. Aperte Ctrl + F5 para recarregar.', 'erro');
+      }
       recarregando = false;
       if (recarregarDeNovo) { recarregarDeNovo = false; recarregar(); }
     }
@@ -337,7 +373,7 @@
     relogioNovas = setTimeout(() => {
       if (!novasDeOutros.length) return;
       const eventos = [...new Set(novasDeOutros.map((l) => l.evento).filter(Boolean))];
-      const quem = [...new Set(novasDeOutros.map((l) => l.enviado_por).filter(Boolean))];
+      const quem = [...new Set(novasDeOutros.map(quemEnviou).filter(Boolean))];
       avisa(`Chegou lista nova: ${plural(novasDeOutros.length, 'pessoa', 'pessoas')} do ${eventos.join(', ')}${quem.length ? `, enviada por ${quem.join(', ')}` : ''}.`);
       novasDeOutros = [];
     }, 1500);
@@ -350,7 +386,7 @@
     canal = sb.channel('cruzamentos-ao-vivo', { config: { presence: { key: estado.usuario.id } } });
     canal
       .on('postgres_changes', { event: '*', schema: 'public', table: TABELA }, (msg) => {
-        if (msg && msg.eventType === 'INSERT' && msg.new && msg.new.enviado_por !== (estado.usuario && estado.usuario.email)) {
+        if (msg && msg.eventType === 'INSERT' && msg.new && msg.new.enviado_por_id !== (estado.usuario && estado.usuario.id)) {
           novasDeOutros.push(msg.new);
           avisaNovas();
         }
@@ -556,12 +592,13 @@
     if (!lotes.length) lista.replaceChildren(el('li', {}, el('span', { class: 'nota', text: 'Nenhuma lista enviada ainda.' })));
     else {
       lista.replaceChildren(...lotes.map((l) => {
-        const quem = l.enviado_por && !estado.demo ? `por ${l.enviado_por}` : '';
+        const nome = quemEnviou(l);
+        const quem = nome ? `por ${nome}` : '';
         const quando = fmtQuando(l.criado_em);
         const botao = el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir', 'data-lote': l.lote, 'aria-label': `Excluir a lista ${l.arquivo || ''}` });
         return el('li', {},
           el('span', { class: 'lote-texto' },
-            el('b', { text: l.arquivo || 'Lista sem nome' }),
+            el('b', { text: l.arquivo || 'Lista sem nome' }, ehMinha(l) ? el('span', { class: 'lote-voce', text: 'sua' }) : null),
             el('span', { text: `${l.eventos.join(', ')}: ${plural(l.linhas, 'pessoa', 'pessoas')}` }),
             (quem || quando) ? el('span', { text: [quem, quando].filter(Boolean).join(', ') }) : null),
           botao);
@@ -578,6 +615,57 @@
     $('#botao-baixar').disabled = !estado.linhas.length;
   }
 
+  const ehMinha = (l) => Boolean(estado.usuario) && ((l.enviado_por_id && l.enviado_por_id === estado.usuario.id)
+    || (!l.enviado_por_id && l.enviado_por && l.enviado_por === estado.usuario.email));
+
+  function abrePerfil() {
+    desenhaPerfil();
+    abreJanela($('#dlg-perfil'));
+  }
+
+  function desenhaPerfil() {
+    if (!estado.calc) calcula();
+    $('#perfil-email').textContent = estado.demo ? 'Demonstração: nada é salvo.' : `Você entrou como ${estado.usuario.email}`;
+    const campo = $('#perfil-campo-nome');
+    if (document.activeElement !== campo) campo.value = estado.nome;
+    const minhas = estado.calc.lotes.filter(ehMinha);
+    const pessoas = minhas.reduce((t, l) => t + l.linhas, 0);
+    const eventos = new Set(minhas.flatMap((l) => l.eventos)).size;
+    const resumo = $('#perfil-resumo');
+    resumo.replaceChildren();
+    if (!minhas.length) resumo.append('Você ainda não subiu nenhuma lista. Quando subir, ela aparece aqui.');
+    else resumo.append('Você subiu ', el('b', { text: plural(minhas.length, 'lista', 'listas') }), ', com ', el('b', { text: plural(pessoas, 'pessoa', 'pessoas') }), `, de ${plural(eventos, 'evento', 'eventos')}.`);
+    $('#perfil-lotes').replaceChildren(...minhas.map((l) => el('li', {},
+      el('span', { class: 'lote-texto' },
+        el('b', { text: l.arquivo || 'Lista sem nome' }),
+        el('span', { text: `${l.eventos.join(', ')}: ${plural(l.linhas, 'pessoa', 'pessoas')}` }),
+        el('span', { text: fmtQuando(l.criado_em) })),
+      el('button', { type: 'button', class: 'botao botao-perigo', text: 'Excluir', 'data-lote': l.lote, 'aria-label': `Excluir a lista ${l.arquivo || ''}` }))));
+  }
+
+  async function salvarNome() {
+    const nome = R.limpa($('#perfil-campo-nome').value).slice(0, 80);
+    if (!nome) { avisa('Escreva o seu nome.', 'erro'); return; }
+    const botao = $('#botao-salvar-nome');
+    botao.disabled = true;
+    try {
+      const { data, error } = await sb.auth.updateUser({ data: { nome } });
+      if (error) throw error;
+      if (data && data.user) estado.usuario = data.user;
+      estado.nome = nome;
+      $('#perfil-nome').textContent = nome;
+      const resposta = await sb.from(TABELA).update({ enviado_por_nome: nome }).eq('enviado_por_id', estado.usuario.id);
+      if (resposta.error) throw resposta.error;
+      avisa('Nome salvo. As suas listas já aparecem com ele.');
+      await recarregar();
+      desenhaPerfil();
+    } catch (e) {
+      avisa(`Não deu para salvar o nome. ${traduzErro(e)}`, 'erro');
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
   async function excluirLote(lote) {
     const info = estado.calc.lotes.find((l) => l.lote === lote);
     if (!info) return;
@@ -587,6 +675,7 @@
     avisa('Lista excluída.');
     await recarregar();
     desenhaGerenciar();
+    desenhaPerfil();
   }
 
   async function juntarEmpresas() {
@@ -643,7 +732,7 @@
     const lote = novoId();
     const registros = EXEMPLO.map(([evento, dataEvento, empresa, setor, nome, cargo, interacao]) => ({
       evento, data_evento: dataEvento, empresa, setor, nome, cargo, interacao, observacoes: null,
-      lote, arquivo: ARQUIVO_EXEMPLO, enviado_por: estado.usuario.email,
+      lote, arquivo: ARQUIVO_EXEMPLO, enviado_por: estado.usuario.email, enviado_por_nome: estado.nome,
     }));
     const { error } = await sb.from(TABELA).insert(registros);
     botao.disabled = false;
@@ -836,7 +925,7 @@
     botao.disabled = true;
     botao.textContent = 'Enviando…';
     const lote = novoId();
-    const registros = p.linhas.map((l) => ({ ...l, lote, arquivo: envio.nomeArquivo, enviado_por: estado.usuario.email || 'demonstração' }));
+    const registros = p.linhas.map((l) => ({ ...l, lote, arquivo: envio.nomeArquivo, enviado_por: estado.usuario.email || '', enviado_por_nome: estado.nome }));
     let enviados = 0;
     try {
       for (let i = 0; i < registros.length; i += 500) {
@@ -854,7 +943,7 @@
       estado.pessoa = '';
       avisa(estado.demo
         ? `Pronto: ${plural(enviados, 'pessoa entrou', 'pessoas entraram')} no mapa (só nesta demonstração).`
-        : `Pronto: ${plural(enviados, 'pessoa entrou', 'pessoas entraram')} no mapa. Quem está com o site aberto já está vendo.`);
+        : `Pronto: ${plural(enviados, 'pessoa entrou', 'pessoas entraram')} no mapa e a lista ficou salva no seu perfil. Quem está com o site aberto já está vendo.`);
       await recarregar();
       rolaPara('#empresas');
     } catch (e) {
@@ -879,6 +968,12 @@
     $('#botao-subir').addEventListener('click', abreSubir);
     $$('[data-acao="subir"]').forEach((b) => b.addEventListener('click', abreSubir));
     $('#botao-gerenciar').addEventListener('click', abreGerenciar);
+    $('#botao-perfil').addEventListener('click', abrePerfil);
+    $('#botao-salvar-nome').addEventListener('click', salvarNome);
+    $('#perfil-lotes').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-lote]');
+      if (b) excluirLote(b.dataset.lote);
+    });
     $('#botao-exemplo').addEventListener('click', carregarExemplo);
     $('#botao-apagar-exemplo').addEventListener('click', apagarExemplo);
 

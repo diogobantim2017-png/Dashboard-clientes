@@ -19,6 +19,7 @@ Para colocar no ar são quatro partes. Faça uma de cada vez, na ordem.
    - Se o Supabase avisar que você chegou ao limite de projetos grátis, use um projeto que você já tem (por exemplo, o do painel de eventos). As tabelas deste site têm nomes próprios e não mexem em nada que já existe.
 3. No menu da esquerda, clique em **SQL Editor**.
 4. Abra o arquivo **banco.sql** (dá para abrir no Bloco de Notas), copie tudo, cole no SQL Editor e clique em **Run**. Tem que aparecer “Success”.
+   - Se você já tinha rodado um banco.sql antes, rode este também. Ele só acrescenta o que falta e não apaga nada.
 5. Crie o acesso de cada pessoa do time:
    - Menu **Authentication** → **Users** → **Add user** → **Create new user**.
    - Digite o e-mail e uma senha.
@@ -71,10 +72,13 @@ Para colocar no ar são quatro partes. Faça uma de cada vez, na ordem.
 
 ## Bom saber
 
+- **Se o site mostrar “Falta ligar o site ao Supabase”:** o config.js no GitHub ainda não tem a Project URL e a chave publishable (Parte 2, passo 7). Sem isso, o site não pede senha e não salva nada.
+- **Se o site disser que os arquivos estão misturados:** suba de novo todos os arquivos do zip no GitHub, incluindo o index.html, e aperte **Ctrl + F5** na página do site.
+- **Meu perfil:** clicando no seu nome, no topo, você vê as listas que subiu e pode trocar o nome que aparece para o time. Cada lista fica gravada com o nome de quem subiu.
 - **Subir uma lista:** botão **Subir lista de um evento**. O site aceita o modelo de planilha e também listas do jeito que vêm dos eventos (Excel ou CSV). Antes de enviar, ele mostra quantas pessoas vão entrar e o que fica de fora.
 - **Errou a lista?** Clique em **Gerenciar listas** e em **Excluir** na lista errada.
 - **Mesma empresa com dois nomes?** Em **Gerenciar listas**, use **A mesma empresa apareceu com dois nomes?**. As próximas listas já entram com o nome certo.
-- **Atualizar o site depois:** se eu te mandar um arquivo novo, no GitHub clique em **Add file** → **Upload files**, arraste o arquivo (com o mesmo nome) e clique em **Commit changes**. O Render atualiza sozinho em 1 ou 2 minutos.
+- **Atualizar o site depois:** no GitHub, clique em **Add file** → **Upload files**, arraste todos os arquivos novos e clique em **Commit changes**. Se o seu config.js no GitHub já tem os dados do Supabase, não suba o config.js do zip (ele está em branco). O Render atualiza sozinho em 1 ou 2 minutos; depois aperte **Ctrl + F5** no site.
 - **Logo da Capgemini no topo (opcional):** suba no GitHub o arquivo oficial do logo com o nome `logo-capgemini.svg` e ele aparece sozinho.
 - **Projeto parado:** no plano grátis, o Supabase pausa o projeto depois de uns dias sem ninguém usar. Se o site parar de carregar, entre no Supabase e clique em **Restore project**.
 - **Privacidade (LGPD):** o site guarda empresa, nome, cargo e tipo de interação. E-mails servem só para descobrir a empresa e não são guardados. Pessoas da própria Capgemini ficam de fora sozinhas.
