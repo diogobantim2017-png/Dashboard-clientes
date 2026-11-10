@@ -10,6 +10,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  const VERSAO = '5';
   const SEM_SETOR = 'Sem setor';
   const SETORES = ['Bancos', 'Seguros', 'Varejo', 'Telecom', 'Saúde', 'Energia', 'Indústria', 'Governo', 'Tecnologia', 'Serviços', 'Outro'];
   const INTERACOES = ['Visita ao estande', 'Reunião agendada', 'Palestra ou painel', 'Sala VIP', 'Convidado'];
@@ -516,7 +517,12 @@
     const m = new Map();
     for (const l of linhas) {
       if (!l.lote) continue;
-      if (!m.has(l.lote)) m.set(l.lote, { lote: l.lote, arquivo: l.arquivo || '', enviado_por: l.enviado_por || '', criado_em: l.criado_em || '', linhas: 0, eventos: new Set() });
+      if (!m.has(l.lote)) {
+        m.set(l.lote, {
+          lote: l.lote, arquivo: l.arquivo || '', enviado_por: l.enviado_por || '', enviado_por_nome: l.enviado_por_nome || '',
+          enviado_por_id: l.enviado_por_id || '', criado_em: l.criado_em || '', linhas: 0, eventos: new Set(),
+        });
+      }
       const g = m.get(l.lote);
       g.linhas += 1;
       g.eventos.add(l.evento);
@@ -526,7 +532,7 @@
   };
 
   return {
-    SEM_SETOR, SETORES, INTERACOES, INTERACAO_PADRAO, CAMPOS,
+    VERSAO, SEM_SETOR, SETORES, INTERACOES, INTERACAO_PADRAO, CAMPOS,
     semAcento, limpa, chave, capitaliza, tiraSufixos, empresaExibicao, chaveEmpresa, ehCapgemini,
     dominio, dominioCorporativo, empresaDoDominio, normalizaSetor, inferirSetor, normalizaInteracao, dataISO,
     mapeiaColunas, achaCabecalho, lerCSV, chaveLinha, preparaLinhas,
