@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="versao-site" content="6">
+  <meta name="versao-site" content="7">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mapa de cruzamentos: clientes × eventos</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300112C'/%3E%3Ccircle cx='22' cy='24' r='7' fill='%2300AEEF'/%3E%3Ccircle cx='42' cy='24' r='4' fill='%230070AD'/%3E%3Ccircle cx='22' cy='42' r='4' fill='%230070AD'/%3E%3Ccircle cx='42' cy='42' r='8' fill='%2300AEEF'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilo.css?v=6">
+  <link rel="stylesheet" href="estilo.css?v=7">
 </head>
 <body>
   <div id="tela-carregando" class="tela tela-centro"><p class="nota">Abrindo o mapa de cruzamentos…</p></div>
@@ -90,11 +90,15 @@
       </section>
 
       <div id="painel" hidden>
+        <div class="abas" role="tablist" aria-label="Visões do mapa">
+          <button type="button" class="aba is-ativa" role="tab" aria-selected="true" data-aba="mapa" id="aba-mapa"><span data-icone="calendario"></span>Mapa</button>
+          <button type="button" class="aba" role="tab" aria-selected="false" data-aba="grades" id="aba-grades"><span data-icone="grade"></span>Grades por empresa</button>
+        </div>
+
         <section class="filtros-globais" id="filtros-globais" aria-label="Filtros do mapa">
           <div class="filtro-linha" id="linha-ano" hidden><span class="filtro-rotulo">Ano</span><div id="chips-ano" class="filtros-setor"></div></div>
           <div class="filtro-linha" id="linha-mu" hidden><span class="filtro-rotulo">MU</span><div id="chips-mu" class="filtros-setor"></div></div>
           <div class="filtro-linha" id="linha-setor" hidden><span class="filtro-rotulo">Setor</span><div id="chips-setor" class="filtros-setor"></div></div>
-          <div class="filtro-linha" id="linha-grade" hidden><span class="filtro-rotulo">Grade</span><div id="pilula-grade"></div></div>
         </section>
 
         <section class="numeros" aria-label="Resumo">
@@ -104,6 +108,7 @@
           <div class="numero"><span class="numero-icone" data-icone="calendario"></span><span class="numero-valor" id="num-eventos">—</span><span class="numero-texto">eventos com lista</span></div>
         </section>
 
+        <div id="conteudo-mapa" class="conteudo-aba">
         <section class="bloco" id="eventos">
           <div class="bloco-topo">
             <h2>Eventos</h2>
@@ -116,7 +121,7 @@
         <section class="bloco" id="grades-bloco">
           <div class="bloco-topo">
             <h2>Pessoas por grade</h2>
-            <p class="nota">Quantas pessoas de cada nível de cargo interagiram com a gente. Clique numa grade para ver só essas pessoas.</p>
+            <p class="nota">Quantas pessoas de cada nível de cargo interagiram com a gente. Clique numa grade para ver quem são, empresa por empresa.</p>
           </div>
           <div id="grades"></div>
         </section>
@@ -134,6 +139,27 @@
           <div id="grade-pessoas" hidden></div>
           <div id="detalhe-empresa" class="detalhe" hidden></div>
           <div id="detalhe-pessoa" class="detalhe" hidden></div>
+        </section>
+        </div>
+
+        <section class="bloco conteudo-aba" id="conteudo-grades" hidden>
+          <div class="bloco-topo">
+            <h2>Grades por empresa</h2>
+            <p class="nota">Quantas pessoas de cada grade interagiram com a gente, em cada empresa. Clique num número para ver quem são. Os filtros de ano e MU lá em cima também valem aqui.</p>
+          </div>
+          <div class="filtros">
+            <input id="busca-grades" class="busca" type="search" placeholder="Procurar empresa" aria-label="Procurar empresa na tabela de grades">
+            <button id="botao-baixar-grades" type="button" class="botao botao-secundario">Baixar esta tabela (Excel)</button>
+          </div>
+          <p id="tabela-grades-resumo" class="nota"></p>
+          <div id="tabela-grades"></div>
+          <div id="selecao-grades" class="selecao-grades">
+            <div class="selecao-topo">
+              <h3 id="selecao-titulo">Clique num número da tabela para ver quem são as pessoas.</h3>
+              <button id="botao-limpar-selecao" type="button" class="botao botao-fantasma">Limpar</button>
+            </div>
+            <div id="pessoas-grade"></div>
+          </div>
         </section>
       </div>
     </main>
@@ -259,8 +285,8 @@
   <script src="supabase.js"></script>
   <script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
-  <script src="regras.js?v=6"></script>
-  <script src="visual.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="regras.js?v=7"></script>
+  <script src="visual.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

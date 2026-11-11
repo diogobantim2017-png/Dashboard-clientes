@@ -11,7 +11,7 @@
   const cfg = window.CRUZ_CONFIG || {};
   const TABELA = 'cruz_interacoes';
   const TABELA_APELIDOS = 'cruz_apelidos';
-  const VERSAO = '6';
+  const VERSAO = '7';
   const COLUNAS = 'id,evento,data_evento,empresa,setor,nome,cargo,interacao,observacoes,lote,arquivo,enviado_por,enviado_por_nome,enviado_por_id,criado_em,mu,grade,lista';
 
   // Sugestões de eventos (o site também usa os que já estão no banco).
@@ -103,8 +103,9 @@
     ano: 'Todos',
     mu: 'Todas',
     setor: 'Todos',
-    grade: '',
     evento: '',
+    aba: 'mapa',
+    tabela: { sel: { empresa: '', grade: '' }, ordem: { campo: 'total', direcao: -1 }, busca: '' },
     visao: 'empresas',
     empresa: '',
     pessoa: '',
@@ -141,6 +142,7 @@
     }
     colocaIcones();
     ligaEventos();
+    if (window.location.hash === '#grades') estado.aba = 'grades';
     const logo = $('#logo');
     if (logo) {
       const mostraLogo = () => { if (logo.naturalWidth > 0) logo.hidden = false; };
@@ -311,13 +313,11 @@
   const anoDaLinha = (l) => R.anoDe(l.data_evento);
   const muDaLinha = (l) => R.limpa(l.mu) || R.SEM_MU;
   const setorDaLinha = (l) => l.setor || R.SEM_SETOR;
-  const gradeDaLinha = (l) => R.limpa(l.grade) || R.SEM_GRADE;
 
   // Linhas que passam pelos filtros. "ignorar" deixa um filtro de fora, para contar as opções dele.
   const filtradas = (ignorar = '') => estado.linhas.filter((l) => (ignorar === 'ano' || estado.ano === 'Todos' || anoDaLinha(l) === estado.ano)
     && (ignorar === 'mu' || estado.mu === 'Todas' || muDaLinha(l) === estado.mu)
-    && (ignorar === 'setor' || estado.setor === 'Todos' || setorDaLinha(l) === estado.setor)
-    && (ignorar === 'grade' || !estado.grade || gradeDaLinha(l) === estado.grade));
+    && (ignorar === 'setor' || estado.setor === 'Todos' || setorDaLinha(l) === estado.setor));
 
   const empresasPor = (linhas, chaveDe) => {
     const m = new Map();
@@ -336,7 +336,6 @@
     if (estado.ano !== 'Todos' && !anos.includes(estado.ano)) estado.ano = 'Todos';
     if (estado.mu !== 'Todas' && !todas.some((l) => muDaLinha(l) === estado.mu)) estado.mu = 'Todas';
     if (estado.setor !== 'Todos' && !todas.some((l) => setorDaLinha(l) === estado.setor)) estado.setor = 'Todos';
-    if (estado.grade && !todas.some((l) => gradeDaLinha(l) === estado.grade)) estado.grade = '';
     const visiveis = filtradas();
 
     const anosEmpresa = new Map();
@@ -384,7 +383,8 @@
       eventosPorPessoa: ordena(eventosPorPessoa),
       nomesPorEmpresa,
       porEvento: R.porEvento(visiveis).filter((e) => e.setor === 'Todos'),
-      grades: R.porGrade(filtradas('grade')),
+      grades: R.porGrade(visiveis),
+      tabelaGrades: R.gradesPorEmpresa(visiveis),
       opAno: empresasPor(filtradas('ano'), anoDaLinha),
       opMu: empresasPor(filtradas('mu'), muDaLinha),
       opSetor: empresasPor(filtradas('setor'), setorDaLinha),
@@ -411,9 +411,112 @@
     if (!temDados) return;
     desenhaFiltros();
     desenhaNumeros();
-    desenhaEventos();
-    desenhaGrades();
-    desenhaLista();
+    desenhaAbas();
+    if (estado.aba === 'grades') desenhaAbaGrades();
+    else {
+      desenhaEventos();
+      desenhaGrades();
+      desenhaLista();
+    }
+  }
+
+  /* ---------- Abas: mapa e grades por empresa ---------- */
+
+  function desenhaAbas() {
+    const grades = estado.aba === 'grades';
+    $('#conteudo-mapa').hidden = grades;
+    $('#conteudo-grades').hidden = !grades;
+    $$('.aba').forEach((b) => {
+      const ativa = b.dataset.aba === estado.aba;
+      b.classList.toggle('is-ativa', ativa);
+      b.setAttribute('aria-selected', String(ativa));
+    });
+  }
+
+  function trocaAba(aba) {
+    estado.aba = aba === 'grades' ? 'grades' : 'mapa';
+    const hash = estado.aba === 'grades' ? '#grades' : '';
+    if (window.location.hash !== hash) {
+      try { window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`); } catch (e) { /* endereço sem histórico */ }
+    }
+    desenhaTudo();
+  }
+
+  const irParaPessoa = (chave) => { estado.aba = 'mapa'; trocaAba('mapa'); abrePessoa(chave); };
+  const irParaEmpresa = (empresa) => { estado.aba = 'mapa'; trocaAba('mapa'); abreEmpresa(empresa); };
+
+  function desenhaAbaGrades() {
+    const t = estado.calc.tabelaGrades;
+    const { sel, ordem } = estado.tabela;
+    const busca = R.chave(estado.tabela.busca);
+    if (sel.grade && !t.grades.includes(sel.grade)) sel.grade = '';
+    if (sel.empresa && !t.empresas.some((e) => e.empresa === sel.empresa)) sel.empresa = '';
+    const valor = (e) => {
+      if (ordem.campo === 'empresa') return e.empresa;
+      if (ordem.campo.startsWith('grade:')) return e.porGrade[ordem.campo.slice(6)] || 0;
+      return e.total;
+    };
+    const empresas = t.empresas
+      .filter((e) => !busca || R.chave(`${e.empresa} ${e.mu}`).includes(busca))
+      .sort((a, b) => {
+        const va = valor(a);
+        const vb = valor(b);
+        const c = typeof va === 'string' ? porNome(va, vb) : va - vb;
+        return c * ordem.direcao || b.total - a.total || porNome(a.empresa, b.empresa);
+      });
+    V.desenhaTabelaGrades($('#tabela-grades'), { grades: t.grades, empresas, totais: t.totais }, {
+      sel,
+      ordem,
+      corDe,
+      aoOrdenar: (campo) => {
+        ordem.direcao = ordem.campo === campo ? -ordem.direcao : (campo === 'empresa' ? 1 : -1);
+        ordem.campo = campo;
+        desenhaAbaGrades();
+      },
+      aoEscolher: (escolha) => {
+        estado.tabela.sel = { empresa: escolha.empresa || '', grade: escolha.grade || '' };
+        desenhaAbaGrades();
+        rolaPara('#selecao-grades');
+      },
+      aoAbrirEmpresa: irParaEmpresa,
+    });
+    $('#tabela-grades-resumo').textContent = `${plural(empresas.length, 'empresa', 'empresas')} e ${plural(t.pessoas.length, 'pessoa', 'pessoas')} com esses filtros.`;
+
+    const caixa = $('#pessoas-grade');
+    const titulo = $('#selecao-titulo');
+    if (!sel.grade && !sel.empresa) {
+      titulo.textContent = 'Clique num número da tabela para ver quem são as pessoas.';
+      caixa.replaceChildren();
+      return;
+    }
+    const pessoas = t.pessoas
+      .filter((p) => (!sel.grade || p.grade === sel.grade) && (!sel.empresa || p.empresa === sel.empresa))
+      .sort((a, b) => R.posicaoGrade(a.grade) - R.posicaoGrade(b.grade) || b.eventos - a.eventos || porNome(a.nome, b.nome));
+    const quantas = plural(pessoas.length, 'pessoa', 'pessoas');
+    if (sel.grade && sel.empresa) titulo.textContent = `${sel.grade} em ${sel.empresa}: ${quantas}`;
+    else if (sel.grade) titulo.textContent = `${sel.grade} em todas as empresas: ${quantas}`;
+    else titulo.textContent = `Todas as pessoas de ${sel.empresa}: ${quantas}`;
+    V.desenhaListaPessoas(caixa, pessoas, { aoEscolher: irParaPessoa });
+  }
+
+  async function baixarGrades() {
+    if (!window.XLSX) await esperaXLSX();
+    if (!window.XLSX) { avisa('A peça que gera Excel não carregou. Verifique a internet e tente de novo.', 'erro'); return; }
+    const t = estado.calc.tabelaGrades;
+    const cab = ['Empresa', 'MU', ...t.grades, 'Total'];
+    const linhas = [...t.empresas].sort((a, b) => b.total - a.total || porNome(a.empresa, b.empresa))
+      .map((e) => [e.empresa, e.mu || '', ...t.grades.map((g) => e.porGrade[g] || 0), e.total]);
+    linhas.push(['Total', '', ...t.grades.map((g) => t.totais[g] || 0), t.pessoas.length]);
+    const pessoas = [...t.pessoas].sort((a, b) => porNome(a.empresa, b.empresa) || R.posicaoGrade(a.grade) - R.posicaoGrade(b.grade) || porNome(a.nome, b.nome))
+      .map((p) => [p.nome, p.cargo || '', p.empresa, p.mu || '', p.grade, p.eventos, p.vezes, R.semDia(p.ultimo_contato) ? R.anoDe(p.ultimo_contato) : fmtData(p.ultimo_contato)]);
+    const wb = window.XLSX.utils.book_new();
+    const ws1 = window.XLSX.utils.aoa_to_sheet([cab, ...linhas]);
+    ws1['!cols'] = cab.map((c, i) => ({ wch: i === 0 ? 30 : 12 }));
+    const ws2 = window.XLSX.utils.aoa_to_sheet([['Pessoa', 'Cargo', 'Empresa', 'MU', 'Grade', 'Eventos', 'Interações', 'Última interação'], ...pessoas]);
+    ws2['!cols'] = [28, 30, 28, 8, 16, 9, 11, 16].map((wch) => ({ wch }));
+    window.XLSX.utils.book_append_sheet(wb, ws1, 'Grades por empresa');
+    window.XLSX.utils.book_append_sheet(wb, ws2, 'Pessoas');
+    window.XLSX.writeFile(wb, `grades-por-empresa-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   function desenhaFiltros() {
@@ -435,10 +538,6 @@
       ...setores.map((x) => ({ valor: x, rotulo: x, n: c.opSetor.get(x).size, cor: x === R.SEM_SETOR ? null : corDe(x) }))], estado.setor,
     (setor) => { estado.setor = setor; estado.evento = ''; refaz(); });
 
-    $('#linha-grade').hidden = !estado.grade;
-    const limpar = el('button', { type: 'button', class: 'cz-link', 'aria-label': 'Tirar o filtro de grade' }, V.icone('fechar', 'cz-icone cz-icone-p'));
-    limpar.addEventListener('click', () => { estado.grade = ''; refaz(); });
-    $('#pilula-grade').replaceChildren(el('span', { class: 'cz-pilula' }, el('span', { text: estado.grade }), limpar));
   }
 
   function desenhaNumeros() {
@@ -465,13 +564,10 @@
   }
 
   function desenhaGrades() {
-    V.desenhaGrades($('#grades'), estado.calc.grades, estado.grade, (grade) => {
-      estado.grade = grade;
-      estado.visao = 'pessoas';
-      estado.empresa = '';
-      estado.pessoa = '';
-      refaz();
-      if (grade) rolaPara('#empresas');
+    V.desenhaGrades($('#grades'), estado.calc.grades, '', (grade) => {
+      estado.tabela.sel = { empresa: '', grade };
+      trocaAba('grades');
+      rolaPara('#selecao-grades');
     });
   }
 
@@ -536,7 +632,7 @@
       filtros,
     };
     if (estado.visao === 'pessoas') {
-      let resumo = `${plural(r.pessoas, 'pessoa', 'pessoas')} no mapa${estado.grade ? ` com grade ${estado.grade}` : ''}.`;
+      let resumo = `${plural(r.pessoas, 'pessoa', 'pessoas')} no mapa.`;
       if (r.pessoas > 1) resumo += r.pessoas_recorrentes ? ` ${fmtN(r.pessoas_recorrentes)} ${r.pessoas_recorrentes === 1 ? 'delas esteve' : 'delas estiveram'} em mais de um evento.` : ' Cada uma esteve em um evento até agora.';
       V.desenhaPessoas($('#grade-pessoas'), pessoasVisiveis(), { ...comum, resumo, eventosDe: (k) => estado.calc.eventosPorPessoa.get(k) || [], aoEscolher: abrePessoa });
     } else {
@@ -1066,6 +1162,11 @@
     });
     $('#setor-novo').addEventListener('change', (e) => { e.target.dataset.tocado = '1'; });
     $('#botao-baixar').addEventListener('click', baixarDados);
+    $$('.aba').forEach((b) => b.addEventListener('click', () => trocaAba(b.dataset.aba)));
+    $('#busca-grades').addEventListener('input', (e) => { estado.tabela.busca = e.target.value; desenhaAbaGrades(); });
+    $('#botao-baixar-grades').addEventListener('click', baixarGrades);
+    $('#botao-limpar-selecao').addEventListener('click', () => { estado.tabela.sel = { empresa: '', grade: '' }; desenhaAbaGrades(); });
+    window.addEventListener('hashchange', () => { const aba = window.location.hash === '#grades' ? 'grades' : 'mapa'; if (aba !== estado.aba && estado.calc) trocaAba(aba); });
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && estado.usuario) agendaRecarga();

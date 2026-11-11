@@ -183,6 +183,77 @@
     caixa.append(ul);
   }
 
+  /* ---------- Tabela de grades por empresa ---------- */
+
+  // dados: { grades, empresas: [{ empresa, mu, setor, total, porGrade }], totais }
+  // opcoes: { sel: { empresa, grade }, ordem: { campo, direcao }, aoOrdenar, aoEscolher, aoAbrirEmpresa, corDe }
+  function desenhaTabelaGrades(caixa, dados, opcoes) {
+    const { sel = {}, ordem = {}, aoOrdenar, aoEscolher, aoAbrirEmpresa, corDe } = opcoes;
+    caixa.replaceChildren();
+    if (!dados.empresas.length) { caixa.append(el('p', { class: 'cz-vazio', text: 'Nenhuma empresa com pessoas com esses filtros.' })); return; }
+    const maior = Math.max(1, ...dados.empresas.flatMap((e) => Object.values(e.porGrade)));
+    const maiorTotal = Math.max(1, ...dados.empresas.map((e) => e.total));
+    const seta = (campo) => (ordem.campo === campo ? (ordem.direcao === 1 ? ' ↑' : ' ↓') : '');
+    const cabecalho = (campo, texto, classe) => {
+      const b = el('button', { type: 'button', class: 'cz-ordenar', text: `${texto}${seta(campo)}`, title: 'Ordenar por esta coluna' });
+      b.addEventListener('click', () => aoOrdenar(campo));
+      return el('th', { scope: 'col', class: classe, 'aria-sort': ordem.campo === campo ? (ordem.direcao === 1 ? 'ascending' : 'descending') : 'none' }, b);
+    };
+    const numero = (n, escolha, ativo, rotulo, referencia = maior) => {
+      if (!n) return el('span', { class: 'cz-zero', 'aria-label': 'nenhuma', text: '–' });
+      const b = el('button', { type: 'button', class: `cz-celula${ativo ? ' is-ativo' : ''}`, text: fmtN(n), 'aria-label': rotulo });
+      b.style.setProperty('--calor', `${Math.min(60, Math.round(8 + (52 * n) / referencia))}%`);
+      b.addEventListener('click', () => aoEscolher(escolha));
+      return b;
+    };
+    const thead = el('thead', {}, el('tr', {},
+      cabecalho('empresa', 'Empresa', 'cz-col-empresa'),
+      ...dados.grades.map((g) => cabecalho(`grade:${g}`, g, sel.grade === g && !sel.empresa ? 'is-coluna' : '')),
+      cabecalho('total', 'Total', 'cz-col-total')));
+    const tbody = el('tbody', {}, ...dados.empresas.map((e) => {
+      const abrir = el('button', { type: 'button', class: 'cz-pessoa-link', text: e.empresa, title: 'Ver a história desta empresa' });
+      abrir.addEventListener('click', () => aoAbrirEmpresa(e.empresa));
+      const rotulo = e.mu || '';
+      return el('tr', { class: sel.empresa === e.empresa ? 'is-linha' : '' },
+        el('th', { scope: 'row', class: 'cz-col-empresa' }, el('div', { class: 'cz-celula-empresa' }, abrir, rotulo ? tag(rotulo, corDe && corDe(rotulo)) : null)),
+        ...dados.grades.map((g) => el('td', {}, numero(e.porGrade[g] || 0, { empresa: e.empresa, grade: g },
+          sel.empresa === e.empresa && sel.grade === g, `${plural(e.porGrade[g] || 0, 'pessoa', 'pessoas')} com grade ${g} em ${e.empresa}`))),
+        el('td', { class: 'cz-col-total' }, numero(e.total, { empresa: e.empresa, grade: '' }, sel.empresa === e.empresa && !sel.grade, `Todas as ${fmtN(e.total)} pessoas de ${e.empresa}`, maiorTotal)));
+    }));
+    const totalGeral = Object.values(dados.totais).reduce((a, b) => a + b, 0);
+    const tfoot = el('tfoot', {}, el('tr', {},
+      el('th', { scope: 'row', class: 'cz-col-empresa', text: 'Total' }),
+      ...dados.grades.map((g) => {
+        const b = el('button', { type: 'button', class: `cz-total-grade${sel.grade === g && !sel.empresa ? ' is-ativo' : ''}`, text: fmtN(dados.totais[g] || 0), 'aria-label': `Todas as pessoas com grade ${g}` });
+        b.addEventListener('click', () => aoEscolher({ empresa: '', grade: g }));
+        return el('td', {}, b);
+      }),
+      el('td', { class: 'cz-col-total', text: fmtN(totalGeral) })));
+    caixa.append(el('div', { class: 'cz-tabela-caixa' }, el('table', { class: 'cz-tabela-grades' }, thead, tbody, tfoot)));
+  }
+
+  // pessoas: [{ chave, nome, empresa, cargo, grade, eventos, vezes, ultimo_contato }]
+  function desenhaListaPessoas(caixa, pessoas, opcoes) {
+    const { aoEscolher } = opcoes;
+    caixa.replaceChildren();
+    if (!pessoas.length) { caixa.append(el('p', { class: 'cz-vazio', text: 'Ninguém aqui.' })); return; }
+    const linhas = pessoas.map((p) => {
+      const nome = el('button', { type: 'button', class: 'cz-pessoa-link', text: p.nome, title: 'Ver a história desta pessoa' });
+      nome.addEventListener('click', () => aoEscolher(p.chave));
+      return el('tr', {},
+        el('td', {}, nome),
+        el('td', { text: p.cargo || '' }),
+        el('td', { text: p.empresa }),
+        el('td', {}, el('span', { class: 'cz-grade-pilula', text: p.grade })),
+        el('td', { class: 'cz-num', text: fmtN(p.eventos) }),
+        el('td', { class: 'cz-num', text: fmtN(p.vezes) }),
+        el('td', { text: fmtDataCurta(p.ultimo_contato) }));
+    });
+    caixa.append(el('div', { class: 'cz-tabela-caixa' }, el('table', { class: 'cz-tabela-pessoas' },
+      el('thead', {}, el('tr', {}, ...['Pessoa', 'Cargo', 'Empresa', 'Grade', 'Eventos', 'Interações', 'Última interação'].map((t, i) => el('th', { scope: 'col', class: i === 4 || i === 5 ? 'cz-num' : '', text: t })))),
+      el('tbody', {}, ...linhas))));
+  }
+
   /* ---------- Empresas ou pessoas (botões de troca) ---------- */
 
   function desenhaAlternador(caixa, visao, contagens, aoTrocar) {
@@ -373,7 +444,7 @@
   }
 
   return {
-    VERSAO: '6', MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, juntaE, el, icone,
-    desenhaChips, desenhaSetores, desenhaLinhaDoTempo, desenhaGrades, desenhaAlternador, desenhaEmpresas, desenhaPessoas, desenhaDetalhe, desenhaDetalhePessoa,
+    VERSAO: '7', MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, juntaE, el, icone,
+    desenhaChips, desenhaSetores, desenhaLinhaDoTempo, desenhaGrades, desenhaTabelaGrades, desenhaListaPessoas, desenhaAlternador, desenhaEmpresas, desenhaPessoas, desenhaDetalhe, desenhaDetalhePessoa,
   };
 });

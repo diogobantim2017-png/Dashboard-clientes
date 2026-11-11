@@ -321,3 +321,51 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .envios { list-style: none; margin: 0; padding: 0 0 0 12px; display: grid; gap: 6px; border-left: 3px solid var(--borda); }
 .envios li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.88rem; }
 @media (max-width: 560px) { .cz-nivel { grid-template-columns: 1fr auto; } .cz-nivel-barra { grid-column: 1 / -1; grid-row: 2; } }
+
+/* Abas: Mapa e Grades por empresa */
+.abas { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 2px solid var(--borda); }
+.aba { font: inherit; font-size: 1rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; margin-bottom: -2px;
+  border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--texto-suave); }
+.aba svg { width: 18px; height: 18px; }
+.aba:hover { color: var(--texto); }
+.aba.is-ativa { color: var(--destaque); border-bottom-color: var(--destaque); }
+.conteudo-aba { display: grid; gap: 34px; }
+#conteudo-grades { gap: 14px; }
+
+/* Tabela de grades por empresa */
+.cz-tabela-caixa { overflow: auto; max-height: 70vh; border: 1px solid var(--borda); border-radius: 14px; background: var(--painel); }
+.cz-tabela-grades, .cz-tabela-pessoas { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.cz-tabela-grades th, .cz-tabela-grades td { padding: 6px 8px; border-bottom: 1px solid var(--linha); text-align: center; white-space: nowrap; }
+.cz-tabela-grades thead th { position: sticky; top: 0; z-index: 2; background: var(--painel); border-bottom: 2px solid var(--borda); }
+.cz-tabela-grades tfoot th, .cz-tabela-grades tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--fundo); border-top: 2px solid var(--borda); font-weight: 700; }
+.cz-tabela-grades .cz-col-empresa { position: sticky; left: 0; z-index: 1; background: var(--painel); text-align: left; min-width: 12rem; max-width: 18rem; white-space: normal; }
+.cz-tabela-grades thead .cz-col-empresa, .cz-tabela-grades tfoot .cz-col-empresa { z-index: 3; }
+.cz-tabela-grades tfoot .cz-col-empresa { background: var(--fundo); }
+.cz-tabela-grades tbody th.cz-col-empresa { font-weight: 400; }
+.cz-celula-empresa { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cz-tabela-grades .cz-col-total { font-weight: 700; border-left: 2px solid var(--borda); }
+.cz-ordenar { font: inherit; font-weight: 700; font-size: 0.85rem; color: var(--texto); background: none; border: 0; padding: 4px 2px; cursor: pointer; white-space: nowrap; }
+.cz-ordenar:hover { color: var(--destaque); }
+.cz-tabela-grades th.is-coluna { background: var(--tinta-forte); }
+.cz-celula, .cz-total-grade { font: inherit; font-weight: 700; min-width: 2.6rem; padding: 6px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+  background: color-mix(in srgb, var(--destaque) var(--calor, 10%), transparent); color: var(--texto); }
+.cz-total-grade { background: var(--tinta); }
+.cz-celula:hover, .cz-total-grade:hover { border-color: var(--destaque); }
+.cz-celula.is-ativo, .cz-total-grade.is-ativo { outline: 3px solid var(--destaque); outline-offset: 1px; }
+.cz-zero { color: var(--borda); }
+.cz-tabela-grades tbody tr:hover th, .cz-tabela-grades tbody tr:hover td { background-color: var(--tinta); }
+.cz-tabela-grades tbody tr.is-linha th, .cz-tabela-grades tbody tr.is-linha td { background-color: var(--tinta-forte); }
+
+/* Pessoas da grade escolhida */
+.selecao-grades { display: grid; gap: 10px; padding: 16px; border-radius: 16px; background: var(--painel); border: 1px solid var(--borda); }
+.selecao-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.selecao-topo h3 { font-size: 1.05rem; }
+.cz-tabela-pessoas th, .cz-tabela-pessoas td { padding: 8px 10px; border-bottom: 1px solid var(--linha); text-align: left; }
+.cz-tabela-pessoas thead th { position: sticky; top: 0; background: var(--painel); font-size: 0.82rem; color: var(--texto-suave); font-weight: 500; }
+.cz-tabela-pessoas .cz-num { text-align: right; }
+.cz-tabela-pessoas .cz-grade-pilula { white-space: nowrap; }
+
+/* Tabelas largas rolam dentro da própria caixa, sem alargar a página no celular */
+#painel, .conteudo-aba, .bloco, #tabela-grades, #pessoas-grade, .selecao-grades { min-width: 0; }
+#painel > *, .conteudo-aba > *, .bloco > *, .selecao-grades > * { min-width: 0; }
+.cz-tabela-caixa { max-width: 100%; }

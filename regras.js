@@ -10,7 +10,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '6';
+  const VERSAO = '7';
   const SEM_SETOR = 'Sem setor';
   const SETORES = ['Bancos', 'Seguros', 'Varejo', 'Telecom', 'Saúde', 'Energia', 'Indústria', 'Governo', 'Tecnologia', 'Serviços', 'Outro'];
   const INTERACOES = ['Visita ao estande', 'Reunião agendada', 'Palestra ou painel', 'Sala VIP', 'Almoço', 'Jantar', 'Café da manhã', 'Coquetel', 'Happy hour', 'Workshop', 'Convidado'];
@@ -185,6 +185,12 @@
     const informada = limpa(valor);
     if (informada) return inferirGrade(informada) || capitaliza(informada);
     return inferirGrade(cargo) || SEM_GRADE;
+  };
+  // Grade de uma linha já salva: a que veio na planilha ou, se não veio (listas antigas), a do cargo.
+  const gradeDaLinha = (l) => {
+    const g = limpa(l && l.grade);
+    if (g && g !== SEM_GRADE) return g;
+    return inferirGrade(l && l.cargo) || SEM_GRADE;
   };
   const posicaoGrade = (g) => { const i = ORDEM_GRADES.indexOf(g); return i < 0 ? (g === SEM_GRADE ? 999 : 500) : i; };
   const normalizaMU = (valor) => {
@@ -618,8 +624,8 @@
       p.anos.add(anoDe(dia(l)));
       if (!p.mu && limpa(l.mu)) p.mu = limpa(l.mu);
       if (limpa(l.cargo) && dia(l) >= p.dataCargo) { p.cargo = limpa(l.cargo); p.dataCargo = dia(l); }
-      const g = limpa(l.grade);
-      if (g && g !== SEM_GRADE && dia(l) >= p.dataGrade) { p.grade = g; p.dataGrade = dia(l); }
+      const g = gradeDaLinha(l);
+      if (g !== SEM_GRADE && dia(l) >= p.dataGrade) { p.grade = g; p.dataGrade = dia(l); }
     }
     return [...m.values()].map((p) => {
       const datas = p.datas.sort();
@@ -636,6 +642,23 @@
     for (const p of porPessoa(linhas)) contagem.set(p.grade, (contagem.get(p.grade) || 0) + 1);
     return [...contagem.entries()].map(([grade, pessoas]) => ({ grade, pessoas }))
       .sort((a, b) => posicaoGrade(a.grade) - posicaoGrade(b.grade) || a.grade.localeCompare(b.grade, 'pt-BR'));
+  };
+
+  // Tabela de grades: para cada empresa, quantas pessoas há em cada grade (cada pessoa conta uma vez).
+  const gradesPorEmpresa = (linhas) => {
+    const pessoas = porPessoa(linhas);
+    const grades = [...new Set(pessoas.map((p) => p.grade))].sort((a, b) => posicaoGrade(a) - posicaoGrade(b) || a.localeCompare(b, 'pt-BR'));
+    const porEmp = new Map();
+    const totais = {};
+    for (const p of pessoas) {
+      if (!porEmp.has(p.empresa)) porEmp.set(p.empresa, { empresa: p.empresa, mu: p.mu, setor: p.setor, total: 0, porGrade: {} });
+      const e = porEmp.get(p.empresa);
+      if (!e.mu && p.mu) e.mu = p.mu;
+      e.total += 1;
+      e.porGrade[p.grade] = (e.porGrade[p.grade] || 0) + 1;
+      totais[p.grade] = (totais[p.grade] || 0) + 1;
+    }
+    return { grades, empresas: [...porEmp.values()], totais, pessoas };
   };
 
   // Cada lista (ex.: "Compilado 2026") com os envios que já recebeu.
@@ -682,7 +705,7 @@
 
   return {
     VERSAO, SEM_SETOR, SEM_MU, SEM_GRADE, SETORES, INTERACOES, INTERACAO_PADRAO, ORDEM_GRADES, CAMPOS,
-    inferirGrade, normalizaGrade, normalizaMU, posicaoGrade, anoDe, semDia, nomeDaLista, porGrade, listas,
+    inferirGrade, normalizaGrade, normalizaMU, posicaoGrade, gradeDaLinha, gradesPorEmpresa, anoDe, semDia, nomeDaLista, porGrade, listas,
     semAcento, limpa, chave, capitaliza, tiraSufixos, empresaExibicao, chaveEmpresa, ehCapgemini,
     dominio, dominioCorporativo, empresaDoDominio, normalizaSetor, inferirSetor, normalizaInteracao, dataISO,
     mapeiaColunas, achaCabecalho, lerCSV, chaveLinha, preparaLinhas,
