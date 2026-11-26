@@ -369,3 +369,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 #painel, .conteudo-aba, .bloco, #tabela-grades, #pessoas-grade, .selecao-grades { min-width: 0; }
 #painel > *, .conteudo-aba > *, .bloco > *, .selecao-grades > * { min-width: 0; }
 .cz-tabela-caixa { max-width: 100%; }
+
+/* Planilha: incluir e corrigir clientes direto no site */
+#painel[data-aba="planilha"] .filtros-globais, #painel[data-aba="planilha"] .numeros { display: none; }
+#conteudo-planilha { gap: 12px; }
+.planilha-caixa { max-height: 72vh; }
+.planilha { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 0.9rem; }
+.planilha thead th { position: sticky; top: 0; z-index: 3; height: 40px; background: var(--painel); border-bottom: 2px solid var(--borda); text-align: left; padding: 0 8px; white-space: nowrap; }
+.pl-ordenar { font: inherit; font-size: 0.82rem; font-weight: 700; color: var(--texto); background: none; border: 0; padding: 8px 0; cursor: pointer; white-space: nowrap; }
+.pl-ordenar:hover { color: var(--destaque); }
+.planilha td { border-bottom: 1px solid var(--linha); border-right: 1px solid var(--linha); vertical-align: middle; }
+.pl-celula { padding: 7px 9px; cursor: text; line-height: 1.35; }
+.pl-linhas tr:hover td { background-color: var(--tinta); }
+.pl-celula:focus { outline: 2px solid var(--ciano); outline-offset: -2px; }
+.pl-celula.is-apagado { color: var(--texto-suave); font-style: italic; }
+.pl-celula.is-editando { padding: 0; background: var(--painel); }
+.pl-celula.is-salvando { opacity: 0.55; }
+.pl-celula.is-erro { background: rgba(179, 38, 30, 0.14) !important; }
+.pl-controle { box-sizing: border-box; width: 100%; min-height: 34px; font: inherit; font-size: 0.9rem; color: var(--texto); background: var(--painel);
+  border: 2px solid var(--destaque); border-radius: 6px; padding: 5px 8px; }
+.pl-c-evento, .pl-c-empresa { width: 11rem; min-width: 11rem; }
+.pl-c-nome, .pl-c-cargo { width: 11rem; min-width: 11rem; }
+.pl-c-data { width: 7rem; min-width: 7rem; }
+.pl-c-tipo { width: 9rem; min-width: 9rem; }
+.pl-c-mu { width: 4.8rem; min-width: 4.8rem; }
+.pl-c-setor { width: 8.5rem; min-width: 8.5rem; }
+.pl-c-grade { width: 8rem; min-width: 8rem; }
+.pl-c-obs { width: 12rem; min-width: 12rem; }
+.pl-controle { min-width: 0; }
+.pl-origem { width: 10rem; min-width: 10rem; padding: 6px 9px; font-size: 0.78rem; color: var(--texto-suave); }
+.pl-origem span { display: block; }
+.pl-origem-lista { color: var(--texto); }
+.pl-acoes { width: 1%; padding: 0 4px; text-align: center; }
+.pl-excluir { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--texto-suave); cursor: pointer; }
+.pl-excluir:hover { color: var(--erro); border-color: var(--erro); }
+.pl-vazia { padding: 18px; color: var(--texto-suave); text-align: center; }
+
+/* A linha azul: onde se digita um cliente novo */
+.pl-nova td { position: sticky; top: 40px; z-index: 2; background: var(--tinta-forte); padding: 6px 5px; border-bottom: 2px solid var(--destaque); }
+@supports (background: color-mix(in srgb, red, blue)) {
+  .pl-nova td { background: color-mix(in srgb, var(--ciano) 16%, var(--painel)); }
+}
+.pl-nova .pl-controle { border: 1px solid var(--borda); }
+.pl-nova .pl-controle:focus { border-color: var(--destaque); outline: 2px solid var(--ciano); outline-offset: 0; }
+.pl-incluir { min-height: 34px; padding: 6px 14px; }

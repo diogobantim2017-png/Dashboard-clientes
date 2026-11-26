@@ -444,7 +444,7 @@
   }
 
   return {
-    VERSAO: '7', MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, juntaE, el, icone,
+    VERSAO: '8', MESES, fmtN, fmtData, fmtDataCurta, plural, porNome, juntaE, el, icone,
     desenhaChips, desenhaSetores, desenhaLinhaDoTempo, desenhaGrades, desenhaTabelaGrades, desenhaListaPessoas, desenhaAlternador, desenhaEmpresas, desenhaPessoas, desenhaDetalhe, desenhaDetalhePessoa,
   };
 });

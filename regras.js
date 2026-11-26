@@ -10,7 +10,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '7';
+  const VERSAO = '8';
   const SEM_SETOR = 'Sem setor';
   const SETORES = ['Bancos', 'Seguros', 'Varejo', 'Telecom', 'Saúde', 'Energia', 'Indústria', 'Governo', 'Tecnologia', 'Serviços', 'Outro'];
   const INTERACOES = ['Visita ao estande', 'Reunião agendada', 'Palestra ou painel', 'Sala VIP', 'Almoço', 'Jantar', 'Café da manhã', 'Coquetel', 'Happy hour', 'Workshop', 'Convidado'];
@@ -334,6 +334,53 @@
     return linhas;
   };
 
+  // Lê o que foi copiado do Excel (colunas separadas por tab; o Excel põe aspas em células com quebra de linha).
+  const lerTSV = (texto) => {
+    const t = String(texto ?? '').replace(/^﻿/, '');
+    const linhas = [];
+    let linha = [];
+    let campo = '';
+    let aspas = false;
+    for (let i = 0; i < t.length; i += 1) {
+      const c = t[i];
+      if (aspas) {
+        if (c === '"') {
+          if (t[i + 1] === '"') { campo += '"'; i += 1; } else aspas = false;
+        } else campo += c;
+      } else if (c === '"' && campo === '') aspas = true;
+      else if (c === '\t') { linha.push(campo); campo = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && t[i + 1] === '\n') i += 1;
+        linha.push(campo);
+        linhas.push(linha);
+        linha = [];
+        campo = '';
+      } else campo += c;
+    }
+    if (campo !== '' || linha.length) { linha.push(campo); linhas.push(linha); }
+    return linhas.filter((l) => l.some((c) => limpa(c) !== ''));
+  };
+
+  // Identificador fixo a partir de um texto (ex.: "usuário|dia" vira sempre o mesmo código).
+  const uuidDe = (texto) => {
+    let h1 = 1779033703; let h2 = 3144134277; let h3 = 1013904242; let h4 = 2773480762;
+    const str = String(texto ?? '');
+    for (let i = 0; i < str.length; i += 1) {
+      const k = str.charCodeAt(i);
+      h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+      h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+      h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+      h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+    }
+    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+    h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+    h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+    h1 ^= (h2 ^ h3 ^ h4); h2 ^= h1; h3 ^= h1; h4 ^= h1;
+    const hex = [h1, h2, h3, h4].map((n) => (n >>> 0).toString(16).padStart(8, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${'89ab'[parseInt(hex[16], 16) % 4]}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+  };
+
   /* ---------- Linhas ---------- */
 
   const chaveLinha = (l) => [chave(l.evento), String(l.data_evento || '').slice(0, 10), chaveEmpresa(l.empresa), chave(l.nome), chave(l.interacao), chave(l.observacoes)].join('|');
@@ -509,6 +556,69 @@
       return { evento, data, linhas: linhas.filter((l) => l.evento === evento && l.data_evento === data).length };
     });
     return { linhas, ignoradas, empresasNovas, primeirasDoAno, eventos, setoresParaAtualizar };
+  };
+
+  /*
+   * Corrige um campo de uma linha que já está no mapa (edição na planilha do site).
+   * contexto: { existentes, apelidos, eventosExtras }.
+   * Devolve { mudancas, propagar, erro }: "mudancas" vale só para esta linha;
+   * "propagar" (MU e setor) vale para todas as linhas da mesma empresa.
+   */
+  const ajustaCampo = (linha, campo, bruto, contexto = {}) => {
+    const valor = limpa(bruto);
+    const existentes = contexto.existentes || [];
+    const ok = (mudancas, propagar = null) => ({ mudancas, propagar, erro: '' });
+    const falha = (erro) => ({ mudancas: {}, propagar: null, erro });
+    if (campo === 'evento') {
+      if (!valor) return falha('O evento não pode ficar vazio.');
+      const k = chave(valor);
+      const doMapa = existentes.find((l) => l.id !== linha.id && chave(l.evento) === k);
+      const sugerido = (contexto.eventosExtras || []).find((e) => chave(e.evento) === k);
+      return ok({ evento: doMapa ? doMapa.evento : (sugerido ? sugerido.evento : valor) });
+    }
+    if (campo === 'data_evento') {
+      const data = dataISO(valor);
+      if (!data) return falha('Data inválida. Use 24/08/2026 ou só o ano (2026).');
+      return ok({ data_evento: data });
+    }
+    if (campo === 'empresa') {
+      if (!valor) return falha('A empresa não pode ficar vazia.');
+      if (ehCapgemini(valor, '')) return falha('Pessoas da própria Capgemini não entram no mapa.');
+      const k = chaveEmpresa(valor);
+      const apelido = (contexto.apelidos || []).find((a) => a.apelido === k);
+      const conhecida = existentes.find((l) => l.id !== linha.id && chaveEmpresa(l.empresa) === k);
+      const empresa = apelido ? apelido.empresa : (conhecida ? conhecida.empresa : empresaExibicao(valor));
+      const mudancas = { empresa };
+      const daEmpresa = existentes.filter((l) => l.id !== linha.id && l.empresa === empresa);
+      const setor = (daEmpresa.find((l) => l.setor && l.setor !== SEM_SETOR) || {}).setor;
+      const mu = (daEmpresa.find((l) => limpa(l.mu)) || {}).mu;
+      if (setor) mudancas.setor = setor;
+      else if (!linha.setor || linha.setor === SEM_SETOR) mudancas.setor = inferirSetor(empresa);
+      if (mu) mudancas.mu = mu;
+      return ok(mudancas);
+    }
+    if (campo === 'mu') {
+      const mu = normalizaMU(valor) || null;
+      return ok({ mu }, { mu });
+    }
+    if (campo === 'setor') {
+      const setor = normalizaSetor(valor) || inferirSetor(linha.empresa);
+      return ok({ setor }, { setor });
+    }
+    if (campo === 'nome') return ok({ nome: capitaliza(valor) || null });
+    if (campo === 'cargo') {
+      const cargo = capitaliza(valor) || null;
+      const mudancas = { cargo };
+      const atual = limpa(linha.grade);
+      // Se a grade tinha vindo do cargo antigo, acompanha o cargo novo.
+      if (atual && atual !== SEM_GRADE && atual === inferirGrade(linha.cargo)) mudancas.grade = inferirGrade(cargo) || null;
+      else if (atual === SEM_GRADE) mudancas.grade = inferirGrade(cargo) || SEM_GRADE;
+      return ok(mudancas);
+    }
+    if (campo === 'grade') return ok({ grade: valor ? normalizaGrade(valor, linha.cargo) : null });
+    if (campo === 'interacao') return ok({ interacao: normalizaInteracao(valor) });
+    if (campo === 'observacoes') return ok({ observacoes: valor ? valor.slice(0, 500) : null });
+    return falha('Este campo não pode ser mudado aqui.');
   };
 
   /* ---------- Números do painel ---------- */
@@ -708,7 +818,7 @@
     inferirGrade, normalizaGrade, normalizaMU, posicaoGrade, gradeDaLinha, gradesPorEmpresa, anoDe, semDia, nomeDaLista, porGrade, listas,
     semAcento, limpa, chave, capitaliza, tiraSufixos, empresaExibicao, chaveEmpresa, ehCapgemini,
     dominio, dominioCorporativo, empresaDoDominio, normalizaSetor, inferirSetor, normalizaInteracao, dataISO,
-    mapeiaColunas, achaCabecalho, lerCSV, chaveLinha, preparaLinhas,
+    mapeiaColunas, achaCabecalho, lerCSV, lerTSV, uuidDe, ajustaCampo, chaveLinha, preparaLinhas,
     resumo, cruzamentos, porEmpresa, porEvento, porPessoa, lotes, chavePessoa: pessoa,
   };
 });

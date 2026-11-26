@@ -67,6 +67,7 @@ Para colocar no ar são quatro partes. Faça uma de cada vez, na ordem.
 - **Se o site mostrar “Falta ligar o site ao Supabase”:** o config.js no GitHub ainda não tem a Project URL e a chave publishable (Parte 2, passo 7). Sem isso, o site não pede senha e não salva nada.
 - **Se o site disser que os arquivos estão misturados:** suba de novo todos os arquivos do zip no GitHub, incluindo o index.html, e aperte **Ctrl + F5** na página do site.
 - **Meu perfil:** clicando no seu nome, no topo, você vê as listas que subiu e pode trocar o nome que aparece para o time. Cada lista fica gravada com o nome de quem subiu.
+- **Aba “Planilha” (o jeito mais rápido):** clique em **Incluir cliente**. Digite o cliente na linha azul e aperte Enter: ele entra no mapa na hora, para todo mundo. Evento, data e empresa continuam preenchidos para a próxima pessoa. Para corrigir, clique na célula, mude e aperte Enter (Tab vai para a próxima, Esc desiste). Para trazer várias linhas, copie do Excel (de preferência junto com a linha de títulos) e cole com Ctrl+V. O link direto desta aba é o endereço do site com #planilha no final.
 - **Subir uma lista:** botão **Subir lista de um evento**. O site aceita o modelo de planilha e também listas do jeito que vêm dos eventos (Excel ou CSV). Antes de enviar, ele mostra quantas interações vão entrar, quais colunas leu e o que fica de fora.
 - **Cada interação conta:** se a pessoa foi ao almoço e ao coquetel do mesmo evento, são duas interações. Só fica de fora a linha exatamente igual a outra.
 - **Compilado do ano:** suba o mesmo arquivo e escolha “Uma atualização de uma lista que já está no mapa”. “Somar só o que é novo” acrescenta o que faltava; “Trocar a lista inteira” substitui a versão anterior (use quando corrigiu nomes ou tirou linhas). Em **Gerenciar listas** dá para ver cada envio, quando e por quem.
@@ -89,6 +90,7 @@ Para colocar no ar são quatro partes. Faça uma de cada vez, na ordem.
 | app.js | o funcionamento do site |
 | regras.js | como o site lê as planilhas e faz as contas |
 | visual.js | os cartões, a linha do tempo e os ícones |
+| planilha.js | a aba Planilha (incluir e corrigir clientes direto no site) |
 | config.js | onde ficam a Project URL e a chave publishable |
 | supabase.js | peça pronta que conecta o site ao Supabase (não mexa) |
 | banco.sql | cria as tabelas no Supabase (Parte 1) |

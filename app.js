@@ -8,10 +8,11 @@
 
   const R = window.Regras;
   const V = window.Visual;
+  const P = window.Planilha;
   const cfg = window.CRUZ_CONFIG || {};
   const TABELA = 'cruz_interacoes';
   const TABELA_APELIDOS = 'cruz_apelidos';
-  const VERSAO = '7';
+  const VERSAO = '8';
   const COLUNAS = 'id,evento,data_evento,empresa,setor,nome,cargo,interacao,observacoes,lote,arquivo,enviado_por,enviado_por_nome,enviado_por_id,criado_em,mu,grade,lista';
 
   // Sugestões de eventos (o site também usa os que já estão no banco).
@@ -106,6 +107,7 @@
     evento: '',
     aba: 'mapa',
     tabela: { sel: { empresa: '', grade: '' }, ordem: { campo: 'total', direcao: -1 }, busca: '' },
+    planilha: { busca: '', soMinhas: false, ordem: { campo: 'criado_em', direcao: -1 }, limite: 200 },
     visao: 'empresas',
     empresa: '',
     pessoa: '',
@@ -135,14 +137,15 @@
 
   async function iniciar() {
     const meta = document.querySelector('meta[name="versao-site"]');
-    if (!R || !V) { mostraErro('Os arquivos regras.js e visual.js precisam estar na mesma pasta do site.'); return; }
-    if (!meta || meta.content !== VERSAO || R.VERSAO !== VERSAO || V.VERSAO !== VERSAO) {
+    if (!R || !V || !P) { mostraErro('Os arquivos regras.js, visual.js e planilha.js precisam estar na mesma pasta do site. Suba de novo todos os arquivos do zip no GitHub e aperte Ctrl + F5.'); return; }
+    if (!meta || meta.content !== VERSAO || R.VERSAO !== VERSAO || V.VERSAO !== VERSAO || P.VERSAO !== VERSAO) {
       mostraErro('Os arquivos do site estão misturados: alguns são de uma versão antiga. Suba de novo todos os arquivos do zip no GitHub (incluindo o index.html) e depois aperte Ctrl + F5 nesta página.');
       return;
     }
     colocaIcones();
     ligaEventos();
-    if (window.location.hash === '#grades') estado.aba = 'grades';
+    preparaPlanilha();
+    estado.aba = abaDoHash();
     const logo = $('#logo');
     if (logo) {
       const mostraLogo = () => { if (logo.naturalWidth > 0) logo.hidden = false; };
@@ -262,9 +265,16 @@
     clearTimeout(relogioNovas);
     relogioNovas = setTimeout(() => {
       if (!novasDeOutros.length) return;
-      const eventos = [...new Set(novasDeOutros.map((l) => l.evento).filter(Boolean))];
       const quem = [...new Set(novasDeOutros.map(quemEnviou).filter(Boolean))];
-      avisa(`Chegou lista nova: ${plural(novasDeOutros.length, 'pessoa', 'pessoas')} do ${eventos.join(', ')}${quem.length ? `, enviada por ${quem.join(', ')}` : ''}.`);
+      const deQuem = quem.length ? quem.join(', ') : 'Alguém do time';
+      if (novasDeOutros.length === 1) {
+        const l = novasDeOutros[0];
+        avisa(`${deQuem} incluiu ${l.nome || 'uma pessoa'} (${l.empresa}) no ${l.evento}.`);
+      } else {
+        const eventos = [...new Set(novasDeOutros.map((l) => l.evento).filter(Boolean))];
+        const lista = eventos.length > 3 ? `${eventos.slice(0, 3).join(', ')} e outros` : eventos.join(', ');
+        avisa(`${deQuem} incluiu ${plural(novasDeOutros.length, 'interação', 'interações')} (${lista}).`);
+      }
       novasDeOutros = [];
     }, 1500);
   };
@@ -406,12 +416,14 @@
   function desenhaTudo() {
     if (!estado.calc) calcula();
     const temDados = estado.linhas.length > 0;
-    $('#vazio').hidden = temDados;
-    $('#painel').hidden = !temDados;
-    if (!temDados) return;
+    const naPlanilha = estado.aba === 'planilha';
+    $('#vazio').hidden = temDados || naPlanilha;
+    $('#painel').hidden = !temDados && !naPlanilha;
+    if (!temDados && !naPlanilha) return;
+    desenhaAbas();
+    if (naPlanilha) { desenhaPlanilha(); return; }
     desenhaFiltros();
     desenhaNumeros();
-    desenhaAbas();
     if (estado.aba === 'grades') desenhaAbaGrades();
     else {
       desenhaEventos();
@@ -420,12 +432,16 @@
     }
   }
 
-  /* ---------- Abas: mapa e grades por empresa ---------- */
+  /* ---------- Abas: mapa, planilha e grades por empresa ---------- */
+
+  const HASH_DA_ABA = { mapa: '', planilha: '#planilha', grades: '#grades' };
+  const abaDoHash = () => ({ '#planilha': 'planilha', '#grades': 'grades' }[window.location.hash] || 'mapa');
 
   function desenhaAbas() {
-    const grades = estado.aba === 'grades';
-    $('#conteudo-mapa').hidden = grades;
-    $('#conteudo-grades').hidden = !grades;
+    $('#painel').dataset.aba = estado.aba;
+    $('#conteudo-mapa').hidden = estado.aba !== 'mapa';
+    $('#conteudo-grades').hidden = estado.aba !== 'grades';
+    $('#conteudo-planilha').hidden = estado.aba !== 'planilha';
     $$('.aba').forEach((b) => {
       const ativa = b.dataset.aba === estado.aba;
       b.classList.toggle('is-ativa', ativa);
@@ -434,8 +450,8 @@
   }
 
   function trocaAba(aba) {
-    estado.aba = aba === 'grades' ? 'grades' : 'mapa';
-    const hash = estado.aba === 'grades' ? '#grades' : '';
+    estado.aba = HASH_DA_ABA[aba] === undefined ? 'mapa' : aba;
+    const hash = HASH_DA_ABA[estado.aba];
     if (window.location.hash !== hash) {
       try { window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`); } catch (e) { /* endereço sem histórico */ }
     }
@@ -1107,6 +1123,335 @@
     }
   }
 
+  /* ---------- Planilha: incluir e corrigir clientes direto no site ---------- */
+
+  const LISTA_PLANILHA = 'Planilha do site';
+  const POR_PAGINA = 200;
+  // Ordem dos campos ao montar uma linha para as regras (a mesma do upload de planilha).
+  const CAMPOS_LINHA = ['evento', 'data', 'empresa', 'mu', 'setor', 'nome', 'sobrenome', 'cargo', 'grade', 'email', 'interacao', 'observacoes'];
+  const MAPA_LINHA = Object.fromEntries(CAMPOS_LINHA.map((c, i) => [c, i]));
+  // Campos que a linha azul empresta para o que for colado sem essas colunas.
+  const CAMPOS_DE_CONTEXTO = ['evento', 'data', 'empresa', 'mu', 'setor', 'interacao'];
+  const campoDaRegra = (campo) => (campo === 'data_evento' ? 'data' : campo);
+
+  let nova = null;
+  let edicao = null;
+  let planilhaPendente = false;
+  let assinaturaListas = '';
+
+  const contextoRegras = (extra = {}) => ({
+    existentes: estado.linhas,
+    apelidos: estado.apelidos,
+    eventosExtras: EVENTOS_SUGERIDOS.map(([evento, data]) => ({ evento, data })),
+    ...extra,
+  });
+  const hojeLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  // Tudo o que uma pessoa inclui à mão num dia fica junto, como um envio só.
+  const loteDoDia = () => R.uuidDe(`${estado.usuario.id}|${hojeLocal()}|planilha`);
+  const dataCurta = (d) => (R.semDia(d) ? R.anoDe(d) : fmtData(d));
+  const linhaDe = (id) => estado.linhas.find((l) => l.id === id);
+
+  function textoCelula(l, campo) {
+    if (campo === 'data_evento') return { texto: dataCurta(l.data_evento), titulo: R.semDia(l.data_evento) ? 'Só o ano' : '' };
+    if (campo === 'grade') {
+      const g = R.limpa(l.grade);
+      if (g && g !== R.SEM_GRADE) return { texto: g };
+      const doCargo = R.inferirGrade(l.cargo);
+      return { texto: doCargo || R.SEM_GRADE, apagado: true, titulo: doCargo ? 'Descoberta pelo cargo' : '' };
+    }
+    if (campo === 'setor') return { texto: l.setor || R.SEM_SETOR, apagado: !l.setor || l.setor === R.SEM_SETOR };
+    return { texto: l[campo] || '' };
+  }
+
+  function valorEdicao(l, campo) {
+    if (campo === 'data_evento') return dataCurta(l.data_evento);
+    if (campo === 'grade') { const g = R.limpa(l.grade); return g && g !== R.SEM_GRADE ? g : ''; }
+    if (campo === 'setor') return l.setor && l.setor !== R.SEM_SETOR ? l.setor : '';
+    return l[campo] || '';
+  }
+
+  function opcoesDe(tipo) {
+    if (tipo === 'setor') return [['', 'Pelo nome'], ...R.SETORES.map((x) => [x, x])];
+    if (tipo === 'grade') return [['', 'Pelo cargo'], ...R.ORDEM_GRADES.map((g) => [g, g])];
+    return [];
+  }
+
+  const origemCelula = (l) => {
+    const quem = quemEnviou(l);
+    return [el('span', { class: 'pl-origem-lista', text: R.nomeDaLista(l) }), quem ? el('span', { class: 'pl-origem-quem', text: `por ${quem}` }) : null];
+  };
+
+  function preparaPlanilha() {
+    nova = P.montaNovaLinha($('#planilha-nova'), opcoesDe);
+    edicao = P.ligaEdicao($('#planilha-linhas'), {
+      linhaDe,
+      valorEdicao,
+      textoDe: textoCelula,
+      opcoesDe,
+      aoSalvar: salvarCelula,
+      aoExcluir: excluirLinha,
+      aoFechar: () => { if (planilhaPendente) desenhaPlanilha(); },
+    });
+    nova.tr.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); incluirDaLinhaAzul(); }
+    });
+    nova.botao.addEventListener('click', incluirDaLinhaAzul);
+    nova.controles.empresa.addEventListener('input', completaEmpresa);
+    nova.controles.empresa.addEventListener('change', completaEmpresa);
+    nova.controles.evento.addEventListener('input', completaEvento);
+    nova.controles.evento.addEventListener('change', completaEvento);
+    $('#conteudo-planilha').addEventListener('paste', aoColar);
+    $('#busca-planilha').addEventListener('input', (e) => { estado.planilha.busca = e.target.value; estado.planilha.limite = POR_PAGINA; desenhaPlanilha(); });
+    $('#so-minhas').addEventListener('change', (e) => { estado.planilha.soMinhas = e.target.checked; estado.planilha.limite = POR_PAGINA; desenhaPlanilha(); });
+    $('#planilha-mais').addEventListener('click', () => { estado.planilha.limite += POR_PAGINA; desenhaPlanilha(); });
+    $('#botao-baixar-planilha').addEventListener('click', baixarDados);
+  }
+
+  function abrePlanilha() {
+    trocaAba('planilha');
+    rolaPara('#conteudo-planilha');
+    if (nova) nova.foca(nova.controles.evento.value ? 'nome' : 'evento');
+  }
+
+  function preencheListas() {
+    const empresas = estado.calc ? estado.calc.empresasTodas.map((e) => e.empresa).sort(porNome) : [];
+    const assinatura = `${estado.linhas.length}|${empresas.length}|${estado.linhas.length ? estado.linhas[estado.linhas.length - 1].id : 0}`;
+    if (assinatura === assinaturaListas) return;
+    assinaturaListas = assinatura;
+    const opcao = (v) => el('option', { value: v });
+    $('#pl-eventos').replaceChildren(...eventosConhecidos().map(([nome]) => opcao(nome)));
+    $('#pl-empresas').replaceChildren(...empresas.map(opcao));
+    $('#pl-mus').replaceChildren(...[...new Set(estado.linhas.map((l) => R.limpa(l.mu)).filter(Boolean))].sort(porNome).map(opcao));
+    $('#pl-interacoes').replaceChildren(...[...new Set([...R.INTERACOES, ...estado.linhas.map((l) => l.interacao).filter(Boolean)])].map(opcao));
+  }
+
+  function desenhaPlanilha() {
+    if (!nova) return;
+    preencheListas();
+    if (edicao.editando()) { planilhaPendente = true; return; }
+    planilhaPendente = false;
+    const { busca, soMinhas, ordem, limite } = estado.planilha;
+    const procura = R.chave(busca);
+    let linhas = estado.linhas;
+    if (soMinhas) linhas = linhas.filter(ehMinha);
+    if (procura) {
+      linhas = linhas.filter((l) => R.chave([l.evento, dataCurta(l.data_evento), l.empresa, l.mu, l.setor, l.nome, l.cargo, R.gradeDaLinha(l),
+        l.interacao, l.observacoes, R.nomeDaLista(l), quemEnviou(l)].join(' ')).includes(procura));
+    }
+    const chaveDe = (l) => {
+      if (ordem.campo === 'criado_em') return `${l.criado_em || ''}|${String(l.id).padStart(14, '0')}`;
+      if (ordem.campo === 'data_evento') return String(l.data_evento || '');
+      if (ordem.campo === 'grade') return String(R.posicaoGrade(R.gradeDaLinha(l))).padStart(4, '0');
+      return R.chave(l[ordem.campo] || '');
+    };
+    const ordenadas = linhas.map((l) => [chaveDe(l), l])
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) * ordem.direcao || (b[1].id - a[1].id))
+      .map(([, l]) => l);
+    const pagina = ordenadas.slice(0, limite);
+    P.desenhaCabecalho($('#planilha-cabecalho'), ordem, (campo) => {
+      ordem.direcao = ordem.campo === campo ? -ordem.direcao : (campo === 'criado_em' ? -1 : 1);
+      ordem.campo = campo;
+      desenhaPlanilha();
+    });
+    P.desenhaLinhas($('#planilha-linhas'), pagina, {
+      texto: textoCelula,
+      origem: origemCelula,
+      icone: V.icone,
+      vazio: procura || soMinhas ? 'Nada encontrado.' : 'A planilha ainda está vazia. Digite o primeiro cliente na linha azul e aperte Enter.',
+    });
+    const total = ordenadas.length;
+    let contagem = `${plural(total, 'linha', 'linhas')}${procura || soMinhas ? ' encontradas' : ' na planilha'}.`;
+    if (total > pagina.length) contagem += ` Mostrando ${fmtN(pagina.length)}.`;
+    $('#planilha-contagem').textContent = contagem;
+    $('#planilha-mais').hidden = total <= pagina.length;
+  }
+
+  // Ao escolher uma empresa que já está no mapa, a linha azul completa a MU e o setor dela.
+  function completaEmpresa() {
+    if (!estado.calc) return;
+    const k = R.chaveEmpresa(nova.controles.empresa.value);
+    if (!k) return;
+    const apelido = estado.apelidos.find((a) => a.apelido === k);
+    const info = estado.calc.empresasTodas.find((e) => (apelido ? e.empresa === apelido.empresa : R.chaveEmpresa(e.empresa) === k));
+    if (!info) return;
+    const mu = nova.controles.mu;
+    if (info.mu && (!mu.value || mu.dataset.auto)) nova.preenche('mu', info.mu, true);
+    const setor = nova.controles.setor;
+    if (info.setor && info.setor !== R.SEM_SETOR && (!setor.value || setor.dataset.auto)) nova.preenche('setor', info.setor, true);
+  }
+
+  // Ao escolher um evento conhecido, a linha azul completa a data.
+  function completaEvento() {
+    const k = R.chave(nova.controles.evento.value);
+    const ev = k ? eventosConhecidos().find(([nome]) => R.chave(nome) === k) : null;
+    const data = nova.controles.data_evento;
+    if (ev && ev[1] && (!data.value || data.dataset.auto)) nova.preenche('data_evento', dataCurta(ev[1]), true);
+  }
+
+  // Por que uma linha não entrou (o que falta), e qual campo mostrar.
+  function motivoDe(ig) {
+    if (ig.vazias) return ['Preencha pelo menos o evento, a data e a empresa.', 'evento'];
+    if (ig.semEmpresa) return ['Falta a empresa.', 'empresa'];
+    if (ig.semEvento) return ['Falta o evento.', 'evento'];
+    if (ig.semData) return ['Falta a data. Pode ser só o ano (ex.: 2026).', 'data_evento'];
+    if (ig.capgemini) return ['Pessoas da própria Capgemini não entram no mapa.', 'empresa'];
+    if (ig.jaExistiam || ig.repetidas) return ['Essa interação já está no mapa (mesmo evento, pessoa e tipo). Mude o tipo de interação ou escreva uma observação.', 'interacao'];
+    return ['Não deu para incluir. Confira os campos da linha azul.', 'evento'];
+  }
+
+  async function incluirDaLinhaAzul() {
+    if (!estado.usuario || nova.botao.disabled) return;
+    const v = nova.valores();
+    const linha = CAMPOS_LINHA.map((c) => (c === 'data' ? v.data_evento : (v[c] || '')));
+    const p = R.preparaLinhas([linha], MAPA_LINHA, contextoRegras({ lista: LISTA_PLANILHA }));
+    if (!p.linhas.length) {
+      const [texto, campo] = motivoDe(p.ignoradas);
+      avisa(texto, 'erro');
+      nova.foca(campo);
+      return;
+    }
+    const registro = { ...p.linhas[0], lista: LISTA_PLANILHA, lote: loteDoDia(), arquivo: null, enviado_por: estado.usuario.email || '', enviado_por_nome: estado.nome };
+    nova.botao.disabled = true;
+    try {
+      const { error } = await sb.from(TABELA).insert(registro);
+      if (error) throw error;
+      for (const x of p.setoresParaAtualizar) await sb.from(TABELA).update({ setor: x.setor }).eq('empresa', x.empresa).eq('setor', R.SEM_SETOR);
+    } catch (e) {
+      avisa(`Não deu para incluir. ${traduzErro(e)}`, 'erro');
+      nova.botao.disabled = false;
+      return;
+    }
+    nova.botao.disabled = false;
+    avisa(`Incluído no mapa: ${registro.nome || 'pessoa sem nome'} (${registro.empresa}), ${registro.evento}. Quem está com o site aberto já está vendo.`);
+    // Evento, data, empresa, MU, setor e tipo ficam, para incluir a próxima pessoa mais rápido.
+    nova.limpa(['nome', 'cargo', 'grade', 'observacoes']);
+    nova.foca('nome');
+    await recarregar();
+  }
+
+  async function salvarCelula(id, campo, valor) {
+    const linha = linhaDe(id);
+    if (!linha) return false;
+    const r = R.ajustaCampo(linha, campo, valor, contextoRegras());
+    if (r.erro) { avisa(r.erro, 'erro'); return false; }
+    const igual = (a, b) => (a ?? null) === (b ?? null);
+    const mudou = Object.keys(r.mudancas).some((k) => !igual(linha[k], r.mudancas[k]));
+    const empresa = r.mudancas.empresa || linha.empresa;
+    const outras = r.propagar ? estado.linhas.filter((l) => l.empresa === empresa && l.id !== id) : [];
+    const propaga = outras.some((l) => Object.keys(r.propagar).some((k) => !igual(l[k], r.propagar[k])));
+    if (!mudou && !propaga) return true;
+    try {
+      if (mudou) {
+        const { error } = await sb.from(TABELA).update(r.mudancas).eq('id', id);
+        if (error) throw error;
+      }
+      if (propaga) {
+        const { error } = await sb.from(TABELA).update(r.propagar).eq('empresa', empresa);
+        if (error) throw error;
+      }
+    } catch (e) {
+      avisa(`Não deu para salvar. ${traduzErro(e)}`, 'erro');
+      return false;
+    }
+    Object.assign(linha, r.mudancas);
+    if (propaga) {
+      outras.forEach((l) => Object.assign(l, r.propagar));
+      avisa(`${campo === 'mu' ? 'MU' : 'Setor'} de ${empresa} atualizado em ${plural(outras.length + 1, 'linha', 'linhas')}.`);
+    }
+    calcula();
+    desenhaTudo();
+    agendaRecarga();
+    return true;
+  }
+
+  async function excluirLinha(id) {
+    const linha = linhaDe(id);
+    if (!linha) return;
+    if (!window.confirm(`Excluir a linha de ${linha.nome || 'pessoa sem nome'} (${linha.empresa}, ${linha.evento})? Ela some para todo mundo.`)) return;
+    const { error } = await sb.from(TABELA).delete().eq('id', id);
+    if (error) { avisa(`Não deu para excluir. ${traduzErro(error)}`, 'erro'); return; }
+    estado.linhas = estado.linhas.filter((l) => l.id !== id);
+    calcula();
+    desenhaTudo();
+    avisa('Linha excluída.');
+    agendaRecarga();
+  }
+
+  // Colar do Excel: várias linhas de uma vez (com ou sem a linha de títulos).
+  function aoColar(e) {
+    const alvo = e.target;
+    if (alvo && alvo.closest && alvo.closest('#busca-planilha')) return;
+    const texto = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+    if (!texto || !/[\t\n]/.test(texto.replace(/(\r?\n)+$/, ''))) return; // um valor só: cola normal no campo
+    e.preventDefault();
+    const campo = alvo && alvo.dataset && alvo.dataset.campo ? alvo.dataset.campo : 'evento';
+    colarLinhas(texto, campo);
+  }
+
+  async function colarLinhas(texto, campoInicial) {
+    if (!estado.usuario) return;
+    const tabela = R.lerTSV(texto);
+    if (!tabela.length) return;
+    const titulos = R.mapeiaColunas(tabela[0].map((c) => R.limpa(c)));
+    const temTitulos = titulos.empresa !== undefined && Object.keys(titulos).length >= 2;
+    let mapa = titulos;
+    if (!temTitulos) {
+      // Sem títulos: as colunas seguem a ordem da planilha, a partir de onde o cursor estava.
+      mapa = {};
+      const ordem = P.CAMPOS.map(campoDaRegra);
+      const largura = Math.max(...tabela.map((l) => l.length));
+      ordem.slice(Math.max(0, ordem.indexOf(campoDaRegra(campoInicial)))).slice(0, largura).forEach((c, i) => { mapa[c] = i; });
+    }
+    const corpo = temTitulos ? tabela.slice(1) : tabela;
+    const padrao = nova.valores();
+    const linhas = corpo.map((l) => CAMPOS_LINHA.map((c) => {
+      if (mapa[c] !== undefined) return R.limpa(l[mapa[c]]);
+      // O que não veio colado e está na linha azul (evento, data, empresa…) vale para todas as linhas.
+      return CAMPOS_DE_CONTEXTO.includes(c) ? R.limpa(padrao[c === 'data' ? 'data_evento' : c]) : '';
+    }));
+    const p = R.preparaLinhas(linhas, MAPA_LINHA, contextoRegras({ lista: LISTA_PLANILHA }));
+    const ig = p.ignoradas;
+    if (!p.linhas.length) {
+      const [motivo, campo] = motivoDe(ig);
+      avisa(ig.semEvento || ig.semData ? `${motivo} Escreva na linha azul e cole de novo.` : motivo, 'erro');
+      nova.foca(campo);
+      return;
+    }
+    const empresas = new Set(p.linhas.map((l) => l.empresa)).size;
+    const fora = [
+      [ig.jaExistiam, 'já estava no mapa', 'já estavam no mapa'],
+      [ig.repetidas, 'repetida', 'repetidas'],
+      [ig.semEmpresa, 'sem empresa', 'sem empresa'],
+      [ig.semEvento, 'sem evento', 'sem evento'],
+      [ig.semData, 'sem data', 'sem data'],
+      [ig.capgemini, 'da própria Capgemini', 'da própria Capgemini'],
+    ].filter(([q]) => q > 0).map(([q, um, varios]) => plural(q, um, varios));
+    let pergunta = `${plural(p.linhas.length, 'interação', 'interações')} de ${plural(empresas, 'empresa', 'empresas')} vão entrar no mapa.`;
+    if (fora.length) pergunta += `\nFicam de fora: ${fora.join('; ')}.`;
+    const ex = p.linhas[0];
+    pergunta += `\n\nConfira a 1ª linha: ${[ex.nome || 'sem nome', ex.cargo, ex.empresa, ex.evento, dataCurta(ex.data_evento), ex.interacao].filter(Boolean).join(' | ')}`;
+    if (!window.confirm(`${pergunta}\n\nColar na planilha?`)) return;
+    const lote = novoId();
+    const registros = p.linhas.map((l) => ({ ...l, lista: LISTA_PLANILHA, lote, arquivo: 'Colado do Excel', enviado_por: estado.usuario.email || '', enviado_por_nome: estado.nome }));
+    let enviados = 0;
+    try {
+      for (let i = 0; i < registros.length; i += 500) {
+        const parte = registros.slice(i, i + 500);
+        const { error } = await sb.from(TABELA).insert(parte);
+        if (error) throw error;
+        enviados += parte.length;
+      }
+      for (const x of p.setoresParaAtualizar) await sb.from(TABELA).update({ setor: x.setor }).eq('empresa', x.empresa).eq('setor', R.SEM_SETOR);
+      avisa(`Pronto: ${plural(enviados, 'interação colada', 'interações coladas')} na planilha. Quem está com o site aberto já está vendo.`);
+    } catch (e) {
+      avisa(enviados ? `Entraram ${fmtN(enviados)} e o resto falhou: ${traduzErro(e)}` : `Não deu para colar. ${traduzErro(e)}`, 'erro');
+    }
+    await recarregar();
+  }
+
   /* ---------- Eventos da página ---------- */
 
   function ligaEventos() {
@@ -1118,6 +1463,7 @@
 
     $('#botao-subir').addEventListener('click', abreSubir);
     $$('[data-acao="subir"]').forEach((b) => b.addEventListener('click', abreSubir));
+    $$('#botao-incluir, [data-acao="incluir"]').forEach((b) => b.addEventListener('click', abrePlanilha));
     $('#botao-gerenciar').addEventListener('click', abreGerenciar);
     $('#botao-perfil').addEventListener('click', abrePerfil);
     $('#botao-salvar-nome').addEventListener('click', salvarNome);
@@ -1166,7 +1512,7 @@
     $('#busca-grades').addEventListener('input', (e) => { estado.tabela.busca = e.target.value; desenhaAbaGrades(); });
     $('#botao-baixar-grades').addEventListener('click', baixarGrades);
     $('#botao-limpar-selecao').addEventListener('click', () => { estado.tabela.sel = { empresa: '', grade: '' }; desenhaAbaGrades(); });
-    window.addEventListener('hashchange', () => { const aba = window.location.hash === '#grades' ? 'grades' : 'mapa'; if (aba !== estado.aba && estado.calc) trocaAba(aba); });
+    window.addEventListener('hashchange', () => { const aba = abaDoHash(); if (aba !== estado.aba && estado.calc) trocaAba(aba); });
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && estado.usuario) agendaRecarga();

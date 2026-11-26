@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="versao-site" content="7">
+  <meta name="versao-site" content="8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mapa de cruzamentos: clientes × eventos</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2300112C'/%3E%3Ccircle cx='22' cy='24' r='7' fill='%2300AEEF'/%3E%3Ccircle cx='42' cy='24' r='4' fill='%230070AD'/%3E%3Ccircle cx='22' cy='42' r='4' fill='%230070AD'/%3E%3Ccircle cx='42' cy='42' r='8' fill='%2300AEEF'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilo.css?v=7">
+  <link rel="stylesheet" href="estilo.css?v=8">
 </head>
 <body>
   <div id="tela-carregando" class="tela tela-centro"><p class="nota">Abrindo o mapa de cruzamentos…</p></div>
@@ -71,27 +71,30 @@
           <p class="abertura-texto">Cada evento tem a lista de quem passou por lá. Aqui você vê quem foi, quando, quantas vezes cada empresa e cada pessoa interagiu com a gente e em que ano.</p>
         </div>
         <div class="abertura-acoes">
-          <button id="botao-subir" type="button" class="botao botao-principal botao-grande"><span data-icone="subir"></span>Subir lista de um evento</button>
+          <button id="botao-incluir" type="button" class="botao botao-principal botao-grande"><span data-icone="pessoas"></span>Incluir cliente</button>
+          <button id="botao-subir" type="button" class="botao botao-secundario"><span data-icone="subir"></span>Subir lista de um evento</button>
           <button id="botao-gerenciar" type="button" class="botao botao-secundario"><span data-icone="lista"></span>Gerenciar listas</button>
         </div>
       </section>
 
       <section id="vazio" class="cartao vazio" hidden>
-        <h2>Ainda não tem nenhuma lista no mapa</h2>
-        <p class="nota">Tudo o que for subido aqui fica salvo e aparece para todo mundo que entrar neste mesmo link, cada um no seu computador.</p>
+        <h2>Ainda não tem nenhum cliente no mapa</h2>
+        <p class="nota">Tudo o que for incluído aqui fica salvo e aparece para todo mundo que entrar neste mesmo link, cada um no seu computador.</p>
         <ol class="passos-vazio">
           <li><span class="passo-icone" data-icone="calendario"></span><b>Depois do evento</b><span>pegue a lista de quem passou por lá: check-in, crachás do estande, convidados.</span></li>
-          <li><span class="passo-icone" data-icone="subir"></span><b>Clique em “Subir lista”</b><span>e escolha a planilha. O site arruma os nomes e tira os repetidos.</span></li>
+          <li><span class="passo-icone" data-icone="subir"></span><b>Inclua na planilha do site</b><span>digitando o cliente ou colando as linhas do Excel. Também dá para subir o arquivo inteiro.</span></li>
           <li><span class="passo-icone" data-icone="pessoas"></span><b>Pronto</b><span>quem estiver com o site aberto vê na hora as empresas que encontraram a gente.</span></li>
         </ol>
         <div class="linha-botoes">
-          <button type="button" class="botao botao-principal" data-acao="subir">Subir a primeira lista</button>
+          <button type="button" class="botao botao-principal" data-acao="incluir">Incluir o primeiro cliente</button>
+          <button type="button" class="botao botao-secundario" data-acao="subir">Subir uma lista</button>
         </div>
       </section>
 
       <div id="painel" hidden>
         <div class="abas" role="tablist" aria-label="Visões do mapa">
           <button type="button" class="aba is-ativa" role="tab" aria-selected="true" data-aba="mapa" id="aba-mapa"><span data-icone="calendario"></span>Mapa</button>
+          <button type="button" class="aba" role="tab" aria-selected="false" data-aba="planilha" id="aba-planilha"><span data-icone="lista"></span>Planilha</button>
           <button type="button" class="aba" role="tab" aria-selected="false" data-aba="grades" id="aba-grades"><span data-icone="grade"></span>Grades por empresa</button>
         </div>
 
@@ -141,6 +144,31 @@
           <div id="detalhe-pessoa" class="detalhe" hidden></div>
         </section>
         </div>
+
+        <section class="bloco conteudo-aba" id="conteudo-planilha" hidden>
+          <div class="bloco-topo">
+            <h2>Planilha</h2>
+            <p class="nota">Digite o cliente na linha azul e aperte Enter: ele entra no mapa na hora, para todo mundo. Para corrigir algo, clique na célula, mude e aperte Enter. Também dá para copiar linhas do Excel (de preferência junto com a linha de títulos) e colar aqui com Ctrl+V.</p>
+          </div>
+          <div class="filtros">
+            <input id="busca-planilha" class="busca" type="search" placeholder="Procurar na planilha" aria-label="Procurar na planilha">
+            <label class="opcao"><input type="checkbox" id="so-minhas"> Só as linhas que eu incluí</label>
+            <button id="botao-baixar-planilha" type="button" class="botao botao-secundario">Baixar em Excel</button>
+          </div>
+          <p id="planilha-contagem" class="nota" aria-live="polite"></p>
+          <div class="cz-tabela-caixa planilha-caixa">
+            <table class="planilha" id="planilha">
+              <thead><tr id="planilha-cabecalho"></tr></thead>
+              <tbody id="planilha-nova" class="pl-nova-corpo"></tbody>
+              <tbody id="planilha-linhas" class="pl-linhas"></tbody>
+            </table>
+          </div>
+          <button id="planilha-mais" type="button" class="botao botao-fantasma" hidden>Mostrar mais linhas</button>
+          <datalist id="pl-eventos"></datalist>
+          <datalist id="pl-empresas"></datalist>
+          <datalist id="pl-mus"></datalist>
+          <datalist id="pl-interacoes"></datalist>
+        </section>
 
         <section class="bloco conteudo-aba" id="conteudo-grades" hidden>
           <div class="bloco-topo">
@@ -285,8 +313,9 @@
   <script src="supabase.js"></script>
   <script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
-  <script src="regras.js?v=7"></script>
-  <script src="visual.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="regras.js?v=8"></script>
+  <script src="visual.js?v=8"></script>
+  <script src="planilha.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
